@@ -65,34 +65,52 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-# 움직이는 Telegram 커스텀 이모지 ID 추출
+# 움직이는 이모지 ID 추출
 async def emoji_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.effective_message
 
     if not message:
         return
 
-    entities = message.entities or []
+    found_ids = []
 
-    emoji_ids = []
-
-    for entity in entities:
+    # 1. 메시지에 들어있는 Premium Custom Emoji
+    for entity in (message.entities or []):
         if entity.type == "custom_emoji" and entity.custom_emoji_id:
-            emoji_ids.append(entity.custom_emoji_id)
+            found_ids.append(entity.custom_emoji_id)
 
-    if emoji_ids:
-        result = "\n".join(
-            f"🔠 CUSTOM EMOJI ID: {emoji_id}"
-            for emoji_id in emoji_ids
-        )
+    # 2. 캡션에 들어있는 Custom Emoji
+    for entity in (message.caption_entities or []):
+        if entity.type == "custom_emoji" and entity.custom_emoji_id:
+            found_ids.append(entity.custom_emoji_id)
+
+    # 3. Custom Emoji Sticker
+    if message.sticker:
+        sticker = message.sticker
+
+        if sticker.custom_emoji_id:
+            found_ids.append(sticker.custom_emoji_id)
+
+    # 중복 제거
+    found_ids = list(dict.fromkeys(found_ids))
+
+    if found_ids:
+        result = "✅ CUSTOM EMOJI ID\n\n" + "\n".join(found_ids)
 
         await message.reply_text(result)
+    else:
+        # 개인톡에서만 안내
+        if message.chat.type == "private":
+            await message.reply_text(
+                "❌ Custom Emoji ID를 찾지 못했습니다.\n"
+                "움직이는 Premium 이모지 또는 Custom Emoji 스티커를 보내주세요."
+            )
 
 
 def main():
     app = Application.builder().token(TOKEN).build()
 
-    # 새 회원 감지
+    # 새 회원 자동 환영
     app.add_handler(
         MessageHandler(
             filters.StatusUpdate.NEW_CHAT_MEMBERS,
@@ -100,10 +118,10 @@ def main():
         )
     )
 
-    # 봇 개인채팅에서 커스텀 이모지 ID 추출
+    # 개인톡으로 오는 모든 메시지 검사
     app.add_handler(
         MessageHandler(
-            filters.ChatType.PRIVATE & filters.TEXT,
+            filters.ChatType.PRIVATE,
             emoji_id
         )
     )
