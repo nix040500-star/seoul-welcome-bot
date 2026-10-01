@@ -4,9 +4,18 @@ from telegram.ext import Application, MessageHandler, ContextTypes, filters
 
 TOKEN = os.environ["BOT_TOKEN"]
 
+# =========================
+# 환영 문구
+# =========================
+
 WELCOME_TEXT = """👋 {name}님, 서울에 오신 것을 환영합니다!
 
 원하시는 메뉴를 아래에서 선택해주세요."""
+
+
+# =========================
+# 버튼
+# =========================
 
 BUTTONS = [
     [
@@ -44,7 +53,10 @@ BUTTONS = [
 ]
 
 
+# =========================
 # 새 회원 자동 환영
+# =========================
+
 async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.effective_message
 
@@ -54,6 +66,7 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = InlineKeyboardMarkup(BUTTONS)
 
     for member in message.new_chat_members:
+
         if member.is_bot:
             continue
 
@@ -65,7 +78,10 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+# =========================
 # 움직이는 이모지 ID 추출
+# =========================
+
 async def emoji_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.effective_message
 
@@ -74,43 +90,61 @@ async def emoji_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     found_ids = []
 
-    # 1. 메시지에 들어있는 Premium Custom Emoji
+    # 텍스트 Premium Custom Emoji
     for entity in (message.entities or []):
-        if entity.type == "custom_emoji" and entity.custom_emoji_id:
+
+        if (
+            entity.type == "custom_emoji"
+            and entity.custom_emoji_id
+        ):
             found_ids.append(entity.custom_emoji_id)
 
-    # 2. 캡션에 들어있는 Custom Emoji
+    # 캡션 Custom Emoji
     for entity in (message.caption_entities or []):
-        if entity.type == "custom_emoji" and entity.custom_emoji_id:
+
+        if (
+            entity.type == "custom_emoji"
+            and entity.custom_emoji_id
+        ):
             found_ids.append(entity.custom_emoji_id)
 
-    # 3. Custom Emoji Sticker
+    # Custom Emoji Sticker
     if message.sticker:
-        sticker = message.sticker
 
-        if sticker.custom_emoji_id:
-            found_ids.append(sticker.custom_emoji_id)
+        custom_id = message.sticker.custom_emoji_id
 
-    # 중복 제거
+        if custom_id:
+            found_ids.append(custom_id)
+
+    # 중복 ID 제거
     found_ids = list(dict.fromkeys(found_ids))
 
     if found_ids:
-        result = "✅ CUSTOM EMOJI ID\n\n" + "\n".join(found_ids)
+
+        result = (
+            "✅ CUSTOM EMOJI ID\n\n"
+            + "\n".join(found_ids)
+        )
 
         await message.reply_text(result)
-    else:
-        # 개인톡에서만 안내
-        if message.chat.type == "private":
-            await message.reply_text(
-                "❌ Custom Emoji ID를 찾지 못했습니다.\n"
-                "움직이는 Premium 이모지 또는 Custom Emoji 스티커를 보내주세요."
-            )
 
+    elif message.chat.type == "private":
+
+        await message.reply_text(
+            "❌ Custom Emoji ID를 찾지 못했습니다.\n"
+            "움직이는 Premium 이모지를 보내주세요."
+        )
+
+
+# =========================
+# 봇 실행
+# =========================
 
 def main():
+
     app = Application.builder().token(TOKEN).build()
 
-    # 새 회원 자동 환영
+    # 새 회원 입장 감지
     app.add_handler(
         MessageHandler(
             filters.StatusUpdate.NEW_CHAT_MEMBERS,
@@ -118,7 +152,7 @@ def main():
         )
     )
 
-    # 개인톡으로 오는 모든 메시지 검사
+    # 개인톡에서 이모지 ID 추출
     app.add_handler(
         MessageHandler(
             filters.ChatType.PRIVATE,
@@ -126,7 +160,9 @@ def main():
         )
     )
 
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    app.run_polling(
+        allowed_updates=Update.ALL_TYPES
+    )
 
 
 if __name__ == "__main__":
