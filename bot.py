@@ -15,7 +15,7 @@ BUTTONS = [
     ],
     [
         InlineKeyboardButton("🔗 링크모아방", url="https://t.me/SexLinker2"),
-        InlineKeyboardButton("💬 네토방", url="https://t.me/+_m3s5CXlNqNlYjQ9"),
+        InlineKeyboardButton("💬 네토방", url="https://t.me/+oTo6bDLCekUxYjU1"),
     ],
     [
         InlineKeyboardButton("🔥 전국 몸매자랑방", url="https://t.me/+-HAXJwNLVz1lYmNl"),
