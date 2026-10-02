@@ -30,13 +30,13 @@ NOTICE_URL = "https://t.me/Sexnotice"
 # 구독 인증 움직이는 이모지
 # =========================
 
-# "name 님 반갑습니다!!" 앞
+# 첫 줄 환영 이모지
 SUB_WELCOME_EMOJI_ID = "5413825479406789631"
 
-# 구독 버튼
+# 구독 ( 들어가기 ) 버튼
 SUB_BUTTON_EMOJI_ID = "5429633836684157942"
 
-# 구독 완료 버튼
+# 구독 완료 ( 입장 완료 ) 버튼
 SUB_DONE_EMOJI_ID = "5413617405421167103"
 
 
@@ -230,7 +230,7 @@ async def is_subscribed(context, user_id):
 
 
 # =========================
-# 기존 환영문구 + 6개 메뉴
+# 기존 환영문구 + 6개 메뉴 보내기
 # =========================
 
 async def send_normal_welcome(message, member):
@@ -246,7 +246,7 @@ async def send_normal_welcome(message, member):
 
 
 # =========================
-# 미구독자 구독 인증 메시지
+# 미구독자 인증 메시지
 # =========================
 
 async def send_subscription_message(message, member):
@@ -255,7 +255,7 @@ async def send_subscription_message(message, member):
     parts = []
     entities = []
 
-    # 맨 앞 움직이는 이모지
+    # 첫 줄 움직이는 이모지
     add_custom_emoji(
         parts,
         entities,
@@ -265,24 +265,23 @@ async def send_subscription_message(message, member):
     parts.append(
         f" {name} 님 반갑습니다!!\n\n"
         "방 사용에 앞서 먼저 아래 채널 구독을 해주세요\n"
-        '구독한 후 "구독 완료" 를 누르면 정상 이용 가능합니다.'
+        '구독한 후 "입장 완료" 를 누르면 정상 이용 가능합니다.'
     )
 
     text = "".join(parts)
 
-    # 구독 / 구독 완료 버튼
     keyboard = InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
-                    "구독",
+                    "구독 ( 들어가기 )",
                     url=NOTICE_URL,
                     icon_custom_emoji_id=SUB_BUTTON_EMOJI_ID,
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "구독 완료",
+                    "구독 완료 ( 입장 완료 )",
                     callback_data=f"check_sub:{member.id}",
                     icon_custom_emoji_id=SUB_DONE_EMOJI_ID,
                 )
@@ -316,14 +315,14 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
             member.id,
         )
 
-        # 이미 공지사항 구독 중
+        # 이미 공지사항을 구독한 사람
         if subscribed:
             await send_normal_welcome(
                 message,
                 member,
             )
 
-        # 공지사항 미구독
+        # 공지사항 미구독자
         else:
             await send_subscription_message(
                 message,
@@ -332,7 +331,7 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# 구독 완료 버튼
+# 구독 완료 ( 입장 완료 ) 버튼
 # =========================
 
 async def check_subscription(
@@ -352,28 +351,39 @@ async def check_subscription(
         await query.answer()
         return
 
-    # 다른 사람이 남의 버튼 누르는 것 방지
+    # =====================================
+    # 다른 사람이 남의 인증버튼 누르는 것 차단
+    # =====================================
+
     if query.from_user.id != target_user_id:
         await query.answer(
-            "본인의 구독 완료 버튼만 누를 수 있습니다.",
+            "본인의 입장 완료 버튼만 사용할 수 있습니다.",
             show_alert=True,
         )
         return
+
+    # =====================================
+    # 실제 공지사항 구독 여부 확인
+    # =====================================
 
     subscribed = await is_subscribed(
         context,
         target_user_id,
     )
 
-    # 아직 미구독
+    # 아직 공지사항 미구독
     if not subscribed:
         await query.answer(
-            "아직 공지사항 채널 구독이 확인되지 않았습니다.",
+            '먼저 "구독 ( 들어가기 )" 버튼을 눌러 '
+            "공지사항 채널을 구독해주세요.",
             show_alert=True,
         )
         return
 
-    # 구독 확인 성공
+    # =====================================
+    # 본인 + 실제 구독 확인 성공
+    # =====================================
+
     await query.answer(
         "구독이 확인되었습니다!"
     )
@@ -381,9 +391,10 @@ async def check_subscription(
     user = query.from_user
     chat = query.message.chat
 
-    # 구독 인증 메시지 자동삭제
+    # 인증 메시지 자동 삭제
     try:
         await query.message.delete()
+
     except Exception as e:
         print(f"인증 메시지 삭제 오류: {e}")
 
