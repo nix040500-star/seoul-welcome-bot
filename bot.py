@@ -1,6 +1,6 @@
 import os
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from telegram import (
@@ -56,8 +56,8 @@ NOTICE_TITLE_EMOJI_IDS = [
     "5431726486484698393",
 ]
 
-NOTICE_LINE1_EMOJI_ID = "5210820276748566172"
-NOTICE_LINE2_EMOJI_ID = "5213400521301313365"
+NOTICE_LINE1_EMOJI_ID = "5461033346152804686"
+NOTICE_LINE2_EMOJI_ID = "5469622950032321924"
 NOTICE_WARNING_EMOJI_ID = "5420323339723881652"
 NOTICE_FLAG_EMOJI_ID = "5219863085577155639"
 NOTICE_SMILE_EMOJI_ID = "5217980545576739208"
@@ -719,13 +719,14 @@ def build_daily_notice():
     parts = []
     entities = []
 
-    # 첫 줄 움직이는 이모지 5개
+    # 첫 줄: 앞쪽 여백 + 움직이는 이모지 5개
+    parts.append("       ")
     for emoji_id in NOTICE_TITLE_EMOJI_IDS:
         add_custom_emoji(parts, entities, emoji_id)
 
     parts.append("\n")
 
-    # 경고 이모지 2개 + 공지사항 필수 확인 + 경고 이모지 2개
+    # 움직이는 이모지 2개 + 공지사항 필수 확인 + 움직이는 이모지 2개
     add_custom_emoji(parts, entities, NOTICE_WARNING_EMOJI_ID)
     add_custom_emoji(parts, entities, NOTICE_WARNING_EMOJI_ID)
 
@@ -757,7 +758,6 @@ def build_daily_notice():
     bold_start = utf16_len("".join(parts))
     bold_text = "잘해줘야 합니다"
     parts.append(bold_text)
-
     entities.append(
         MessageEntity(
             type=MessageEntity.BOLD,
@@ -771,7 +771,6 @@ def build_daily_notice():
     off_start = utf16_len("".join(parts))
     off_text = "오프 합니다"
     parts.append(off_text)
-
     entities.append(
         MessageEntity(
             type=MessageEntity.BOLD,
@@ -780,14 +779,14 @@ def build_daily_notice():
         )
     )
 
-    parts.append(" )\n")
+    parts.append(" )\n\n\n")
 
     # 아래 공지사항 버튼 안내
     add_custom_emoji(parts, entities, NOTICE_SMILE_EMOJI_ID)
     parts.append(" 아래 공지사항 버튼을 눌러 확인하세요.\n")
 
-    # 깃발 16개
-    for _ in range(16):
+    # 맨 아래 움직이는 이모지 8개
+    for _ in range(8):
         add_custom_emoji(parts, entities, NOTICE_FLAG_EMOJI_ID)
 
     text = "".join(parts)
@@ -865,44 +864,44 @@ async def send_daily_notice(context):
 
 
 # ==================================================
-# 오전 9시 자동 실행 루프
+# 공지 자동 유지 루프
 # ==================================================
 
 async def daily_notice_loop(app):
+    # 메인방 공지가 사라졌는지 주기적으로 확인
+    # 텔레그램 1일 자동삭제 등으로 공지가 없어지면 자동으로 다시 생성/고정
     while True:
-        now = datetime.now(KST)
-
-        next_run = now.replace(
-            hour=DAILY_NOTICE_HOUR,
-            minute=0,
-            second=0,
-            microsecond=0,
-        )
-
-        if now >= next_run:
-            next_run += timedelta(days=1)
-
-        wait_seconds = (next_run - now).total_seconds()
-
-        print(f"다음 자동공지 시간: {next_run.isoformat()}")
-        await asyncio.sleep(wait_seconds)
-
         try:
-            await send_daily_notice(app)
-        except Exception as e:
-            print(f"자동공지 실행 오류: {e}")
+            chat = await app.bot.get_chat(MAIN_GROUP_ID)
+            pinned = chat.pinned_message
+            bot_user = await app.bot.get_me()
 
-        # 같은 초에 중복 실행되는 것 방지
-        await asyncio.sleep(2)
+            notice_exists = (
+                pinned
+                and pinned.from_user
+                and pinned.from_user.id == bot_user.id
+                and pinned.text
+                and "공지사항 필수 확인" in pinned.text
+            )
+
+            if not notice_exists:
+                print("고정 공지가 없습니다. 자동으로 새 공지를 생성합니다.")
+                await send_daily_notice(app)
+
+        except Exception as e:
+            print(f"공지 자동확인 오류: {e}")
+
+        # 5분마다 확인
+        await asyncio.sleep(300)
 
 
 # ==================================================
-# 봇 시작 시 자동공지 스케줄 시작
+# 봇 시작 시 공지 자동 유지 시작
 # ==================================================
 
 async def post_init(app):
     asyncio.create_task(daily_notice_loop(app))
-    print("자동공지 스케줄 시작 완료")
+    print("공지 자동 유지 기능 시작 완료")
 
 
 # ==================================================
