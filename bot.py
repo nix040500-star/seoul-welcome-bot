@@ -5,6 +5,7 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     MessageEntity,
+    ChatPermissions,
 )
 
 from telegram.constants import ChatMemberStatus
@@ -61,7 +62,7 @@ MAIN_EMOJI_ID = "5267239001508554968"
 
 
 # ==================================================
-# 6개 메뉴 - URL 직접 이동 방식
+# 6개 메뉴 - URL 직접 이동
 # ==================================================
 
 BUTTONS = [
@@ -107,16 +108,12 @@ BUTTONS = [
 
 
 # ==================================================
-# UTF-16 길이 계산
+# UTF-16
 # ==================================================
 
 def utf16_len(text):
     return len(text.encode("utf-16-le")) // 2
 
-
-# ==================================================
-# 움직이는 이모지 추가
-# ==================================================
 
 def add_custom_emoji(parts, entities, emoji_id):
     current_text = "".join(parts)
@@ -257,7 +254,80 @@ async def is_main_group_member(context, user_id):
 
 
 # ==================================================
-# 정상 환영문구 + URL 메뉴
+# 미구독자 채팅 잠금
+# ==================================================
+
+async def lock_member(context, user_id):
+    try:
+        await context.bot.restrict_chat_member(
+            chat_id=MAIN_GROUP_ID,
+            user_id=user_id,
+            permissions=ChatPermissions(
+                can_send_messages=False,
+                can_send_audios=False,
+                can_send_documents=False,
+                can_send_photos=False,
+                can_send_videos=False,
+                can_send_video_notes=False,
+                can_send_voice_notes=False,
+                can_send_polls=False,
+                can_send_other_messages=False,
+                can_add_web_page_previews=False,
+                can_change_info=False,
+                can_invite_users=False,
+                can_pin_messages=False,
+                can_manage_topics=False,
+            ),
+        )
+
+        print(f"{user_id} 채팅 잠금 완료")
+
+        return True
+
+    except Exception as e:
+        print(f"채팅 잠금 오류: {e}")
+        return False
+
+
+# ==================================================
+# 구독 완료자 채팅 잠금 해제
+# 그룹의 기본 권한으로 복구
+# ==================================================
+
+async def unlock_member(context, user_id):
+    try:
+        await context.bot.restrict_chat_member(
+            chat_id=MAIN_GROUP_ID,
+            user_id=user_id,
+            permissions=ChatPermissions(
+                can_send_messages=True,
+                can_send_audios=True,
+                can_send_documents=True,
+                can_send_photos=True,
+                can_send_videos=True,
+                can_send_video_notes=True,
+                can_send_voice_notes=True,
+                can_send_polls=True,
+                can_send_other_messages=True,
+                can_add_web_page_previews=True,
+                can_change_info=False,
+                can_invite_users=True,
+                can_pin_messages=False,
+                can_manage_topics=False,
+            ),
+        )
+
+        print(f"{user_id} 채팅 잠금 해제 완료")
+
+        return True
+
+    except Exception as e:
+        print(f"채팅 잠금 해제 오류: {e}")
+        return False
+
+
+# ==================================================
+# 정상 환영문구 + 메뉴
 # ==================================================
 
 async def send_normal_welcome(message, member):
@@ -299,7 +369,7 @@ async def send_subscription_message(message, member):
     parts.append(
         f" {name} 님 반갑습니다!!\n\n"
         "방 사용에 앞서 먼저 아래 채널 구독을 해주세요\n"
-        '구독한 후 "입장 완료" 를 누르면 정상 이용 가능합니다.'
+        '구독한 후 "입장 완료" 를 누르면 채팅이 활성화됩니다.'
     )
 
     text = "".join(parts)
@@ -345,7 +415,6 @@ async def welcome(
 
     for member in message.new_chat_members:
 
-        # 봇 제외
         if member.is_bot:
             continue
 
@@ -354,15 +423,30 @@ async def welcome(
             member.id,
         )
 
-        # 이미 구독한 사람
+        # 이미 공지채널을 구독한 사람
         if subscribed:
+
+            # 정상 채팅 가능 상태
+            await unlock_member(
+                context,
+                member.id,
+            )
+
             await send_normal_welcome(
                 message,
                 member,
             )
 
-        # 미구독자
+        # 미구독 신규회원
         else:
+
+            # 먼저 채팅 잠금
+            await lock_member(
+                context,
+                member.id,
+            )
+
+            # 구독 인증창
             await send_subscription_message(
                 message,
                 member,
@@ -382,7 +466,6 @@ async def check_subscription(
     if not query:
         return
 
-    # 인증 대상 ID
     try:
         target_user_id = int(
             query.data.split(":")[1]
@@ -394,7 +477,7 @@ async def check_subscription(
 
 
     # ==================================================
-    # 남의 구독 완료 버튼 클릭 차단
+    # 남의 구독 완료 버튼 사용 차단
     # ==================================================
 
     if query.from_user.id != target_user_id:
@@ -406,7 +489,7 @@ async def check_subscription(
 
 
     # ==================================================
-    # 실제 메인방 회원인지 확인
+    # 메인방 회원 확인
     # ==================================================
 
     main_member = await is_main_group_member(
@@ -423,7 +506,7 @@ async def check_subscription(
 
 
     # ==================================================
-    # 실제 공지채널 구독 확인
+    # 공지채널 실제 구독 확인
     # ==================================================
 
     subscribed = await is_subscribed(
@@ -441,11 +524,25 @@ async def check_subscription(
 
 
     # ==================================================
-    # 인증 성공
+    # 구독 확인 성공 → 채팅 잠금 해제
     # ==================================================
 
+    unlocked = await unlock_member(
+        context,
+        target_user_id,
+    )
+
+    if not unlocked:
+        await query.answer(
+            "구독은 확인됐지만 채팅 권한을 활성화하지 못했습니다.\n"
+            "관리자에게 문의해주세요.",
+            show_alert=True,
+        )
+        return
+
+
     await query.answer(
-        "구독이 확인되었습니다!"
+        "구독 확인 완료! 이제 채팅할 수 있습니다."
     )
 
     user = query.from_user
@@ -461,7 +558,7 @@ async def check_subscription(
 
 
     # ==================================================
-    # 환영문구 + URL 메뉴 출력
+    # 정상 환영문구 + URL 메뉴
     # ==================================================
 
     name = (
@@ -551,7 +648,7 @@ def main():
         )
     )
 
-    # 개인채팅 이모지 ID 확인
+    # 개인채팅 이모지 ID
     app.add_handler(
         MessageHandler(
             filters.ChatType.PRIVATE,
