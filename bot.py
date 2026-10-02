@@ -325,9 +325,10 @@ async def unlock_member(context, user_id):
 
 # ==================================================
 # 정상 환영문구 + URL 메뉴
+# 독립 메시지 방식
 # ==================================================
 
-async def send_normal_welcome(message, member):
+async def send_normal_welcome(context, chat_id, member):
     name = (
         member.full_name
         or member.first_name
@@ -336,7 +337,8 @@ async def send_normal_welcome(message, member):
 
     text, entities = build_welcome_message(name)
 
-    await message.reply_text(
+    await context.bot.send_message(
+        chat_id=chat_id,
         text=text,
         entities=entities,
         reply_markup=InlineKeyboardMarkup(BUTTONS),
@@ -345,9 +347,10 @@ async def send_normal_welcome(message, member):
 
 # ==================================================
 # 미구독 신규회원 인증창
+# 독립 메시지 방식
 # ==================================================
 
-async def send_subscription_message(message, member):
+async def send_subscription_message(context, chat_id, member):
     name = (
         member.full_name
         or member.first_name
@@ -390,7 +393,8 @@ async def send_subscription_message(message, member):
         ]
     )
 
-    await message.reply_text(
+    await context.bot.send_message(
+        chat_id=chat_id,
         text=text,
         entities=entities,
         reply_markup=keyboard,
@@ -399,7 +403,6 @@ async def send_subscription_message(message, member):
 
 # ==================================================
 # 신규회원 입장
-# Telegram 기본 "OO님이 들어왔습니다" 메시지도 삭제
 # ==================================================
 
 async def welcome(
@@ -410,6 +413,8 @@ async def welcome(
 
     if not message or not message.new_chat_members:
         return
+
+    chat_id = message.chat.id
 
     for member in message.new_chat_members:
 
@@ -431,28 +436,30 @@ async def welcome(
             )
 
             await send_normal_welcome(
-                message,
+                context,
+                chat_id,
                 member,
             )
 
         # 미구독 신규회원
         else:
 
-            # 채팅부터 잠금
+            # 채팅 잠금
             await lock_member(
                 context,
                 member.id,
             )
 
-            # 구독 인증창 표시
+            # 구독 인증창
             await send_subscription_message(
-                message,
+                context,
+                chat_id,
                 member,
             )
 
+
     # ==================================================
     # Telegram 기본 입장 시스템 메시지 삭제
-    # 봇이 보낸 환영문구/인증창은 삭제되지 않음
     # ==================================================
 
     try:
@@ -499,7 +506,7 @@ async def check_subscription(
 
 
     # ==================================================
-    # 실제 메인방 회원인지 확인
+    # 메인방 회원 확인
     # ==================================================
 
     main_member = await is_main_group_member(
@@ -560,7 +567,7 @@ async def check_subscription(
 
 
     # ==================================================
-    # 기존 구독 인증창 삭제
+    # 구독 인증창 삭제
     # ==================================================
 
     try:
@@ -592,8 +599,6 @@ async def check_subscription(
 
 # ==================================================
 # 회원 퇴장 시스템 메시지 자동 삭제
-#
-# "OO님이 그룹을 나갔습니다"
 # ==================================================
 
 async def delete_left_member_message(
@@ -671,8 +676,7 @@ def main():
     )
 
 
-    # 신규회원 입장
-    # 구독 확인 + 채팅 잠금 + Telegram 기본 입장문구 삭제
+    # 신규회원
     app.add_handler(
         MessageHandler(
             filters.StatusUpdate.NEW_CHAT_MEMBERS,
@@ -681,7 +685,7 @@ def main():
     )
 
 
-    # 회원 퇴장 시스템 메시지 자동삭제
+    # 퇴장 시스템 메시지 자동삭제
     app.add_handler(
         MessageHandler(
             filters.StatusUpdate.LEFT_CHAT_MEMBER,
@@ -690,7 +694,7 @@ def main():
     )
 
 
-    # 구독 완료 버튼
+    # 구독 완료
     app.add_handler(
         CallbackQueryHandler(
             check_subscription,
@@ -699,7 +703,7 @@ def main():
     )
 
 
-    # 개인채팅 움직이는 이모지 ID 확인
+    # 개인채팅 이모지 ID 확인
     app.add_handler(
         MessageHandler(
             filters.ChatType.PRIVATE,
