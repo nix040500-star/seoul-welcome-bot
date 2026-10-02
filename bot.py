@@ -6,7 +6,7 @@ from telegram import (
     MessageEntity,
 )
 from telegram.constants import ChatMemberStatus
-from telegram.error import BadRequest
+from telegram.error import BadRequest, Forbidden
 from telegram.ext import (
     Application,
     MessageHandler,
@@ -16,6 +16,13 @@ from telegram.ext import (
 )
 
 TOKEN = os.environ["BOT_TOKEN"]
+
+
+# =========================
+# 서 울 메인방
+# =========================
+
+MAIN_GROUP_ID = -1003796235018
 
 
 # =========================
@@ -51,46 +58,73 @@ MAIN_EMOJI_ID = "5267239001508554968"
 
 
 # =========================
-# 최종 6개 메뉴
-# 누르면 해당 방으로 바로 이동
+# 메뉴 주소
+# =========================
+
+MENU_URLS = {
+    "notice": "https://t.me/Sexnotice",
+    "waiting": "https://t.me/+FnSLuMpzKCc0MTM1",
+    "links": "https://t.me/SexLinker2",
+    "neto": "https://t.me/GoodSexer2",
+    "body": "https://t.me/BodyGood2",
+    "partner": "https://t.me/Kingsexer",
+}
+
+
+MENU_NAMES = {
+    "notice": "공지사항",
+    "waiting": "대기조방",
+    "links": "링크모아방",
+    "neto": "네토방",
+    "body": "전국 몸매자랑방",
+    "partner": "제휴문의",
+}
+
+
+# =========================
+# 6개 메뉴
+#
+# 중요:
+# URL 직접 이동 방식이 아님.
+# 누른 사람을 먼저 검사한다.
 # =========================
 
 BUTTONS = [
     [
         InlineKeyboardButton(
             "공지사항",
-            url="https://t.me/Sexnotice",
+            callback_data="menu:notice",
             icon_custom_emoji_id="5332312390312668778",
         ),
         InlineKeyboardButton(
             "대기조방",
-            url="https://t.me/+FnSLuMpzKCc0MTM1",
+            callback_data="menu:waiting",
             icon_custom_emoji_id="5332381569350905644",
         ),
     ],
     [
         InlineKeyboardButton(
             "링크모아방",
-            url="https://t.me/SexLinker2",
+            callback_data="menu:links",
             icon_custom_emoji_id="5332822842880832998",
         ),
         InlineKeyboardButton(
             "네토방",
-            url="https://t.me/GoodSexer2",
+            callback_data="menu:neto",
             icon_custom_emoji_id="5332443897916306318",
         ),
     ],
     [
         InlineKeyboardButton(
             "전국 몸매자랑방",
-            url="https://t.me/BodyGood2",
+            callback_data="menu:body",
             icon_custom_emoji_id="5330458252930986764",
         ),
     ],
     [
         InlineKeyboardButton(
             "제휴문의",
-            url="https://t.me/Kingsexer",
+            callback_data="menu:partner",
             icon_custom_emoji_id="5332817676035176022",
         ),
     ],
@@ -123,7 +157,7 @@ def add_custom_emoji(parts, entities, emoji_id):
 
 
 # =========================
-# 환영문구 만들기
+# 환영문구
 # =========================
 
 def build_welcome_message(name):
@@ -133,7 +167,11 @@ def build_welcome_message(name):
     parts.append(f"{name}님, ")
 
     for emoji_id in TITLE_EMOJI_IDS:
-        add_custom_emoji(parts, entities, emoji_id)
+        add_custom_emoji(
+            parts,
+            entities,
+            emoji_id,
+        )
 
     parts.append("에 오신걸 환영합니다.\n\n")
 
@@ -176,7 +214,9 @@ def build_welcome_message(name):
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
     parts.append(" 이벤트 00방 진행중\n\n")
 
-    parts.append("원하시는 메뉴를 아래에서 선택해주세요.")
+    parts.append(
+        "원하시는 메뉴를 아래에서 선택해주세요."
+    )
 
     text = "".join(parts)
 
@@ -193,7 +233,7 @@ def build_welcome_message(name):
 
 
 # =========================
-# 공지사항 구독 여부 확인
+# 공지채널 구독 확인
 # =========================
 
 async def is_subscribed(context, user_id):
@@ -209,27 +249,61 @@ async def is_subscribed(context, user_id):
             ChatMemberStatus.OWNER,
         )
 
-    except BadRequest:
+    except Exception as e:
+        print(f"공지채널 확인 오류: {e}")
         return False
+
+
+# =========================
+# 메인방 회원 확인
+# =========================
+
+async def is_main_group_member(
+    context,
+    user_id,
+):
+    try:
+        member = await context.bot.get_chat_member(
+            chat_id=MAIN_GROUP_ID,
+            user_id=user_id,
+        )
+
+        return member.status in (
+            ChatMemberStatus.MEMBER,
+            ChatMemberStatus.ADMINISTRATOR,
+            ChatMemberStatus.OWNER,
+            ChatMemberStatus.RESTRICTED,
+        )
 
     except Exception as e:
-        print(f"구독 확인 오류: {e}")
+        print(f"메인방 회원 확인 오류: {e}")
         return False
 
 
 # =========================
-# 정상 환영문구 + 6개 메뉴
+# 정상 환영문구
 # =========================
 
-async def send_normal_welcome(message, member):
-    name = member.full_name or member.first_name or "회원"
+async def send_normal_welcome(
+    message,
+    member,
+):
+    name = (
+        member.full_name
+        or member.first_name
+        or "회원"
+    )
 
-    text, entities = build_welcome_message(name)
+    text, entities = build_welcome_message(
+        name
+    )
 
     await message.reply_text(
         text=text,
         entities=entities,
-        reply_markup=InlineKeyboardMarkup(BUTTONS),
+        reply_markup=InlineKeyboardMarkup(
+            BUTTONS
+        ),
     )
 
 
@@ -237,8 +311,15 @@ async def send_normal_welcome(message, member):
 # 미구독자 인증창
 # =========================
 
-async def send_subscription_message(message, member):
-    name = member.full_name or member.first_name or "회원"
+async def send_subscription_message(
+    message,
+    member,
+):
+    name = (
+        member.full_name
+        or member.first_name
+        or "회원"
+    )
 
     parts = []
     entities = []
@@ -260,7 +341,6 @@ async def send_subscription_message(message, member):
     keyboard = InlineKeyboardMarkup(
         [
             [
-                # 바로 공지사항 채널 이동
                 InlineKeyboardButton(
                     "구독 ( 들어가기 )",
                     url=NOTICE_URL,
@@ -268,7 +348,6 @@ async def send_subscription_message(message, member):
                 )
             ],
             [
-                # 이 버튼만 해당 신규회원 본인 전용
                 InlineKeyboardButton(
                     "구독 완료 ( 입장 완료 )",
                     callback_data=f"check_sub:{member.id}",
@@ -295,28 +374,30 @@ async def welcome(
 ):
     message = update.effective_message
 
-    if not message or not message.new_chat_members:
+    if (
+        not message
+        or not message.new_chat_members
+    ):
         return
 
     for member in message.new_chat_members:
+
         if member.is_bot:
             continue
 
-        # 들어온 사람의 공지사항 구독 여부 확인
         subscribed = await is_subscribed(
             context,
             member.id,
         )
 
-        # 이미 공지사항 구독 중
-        # 구독 인증창 없이 바로 환영메뉴
+        # 이미 공지채널 구독자
         if subscribed:
             await send_normal_welcome(
                 message,
                 member,
             )
 
-        # 미구독자만 인증창 표시
+        # 미구독자
         else:
             await send_subscription_message(
                 message,
@@ -325,7 +406,7 @@ async def welcome(
 
 
 # =========================
-# 구독 완료 ( 입장 완료 )
+# 구독 완료
 # =========================
 
 async def check_subscription(
@@ -347,7 +428,7 @@ async def check_subscription(
         return
 
     # =========================
-    # 인증창 주인 확인
+    # 본인 인증창인지 확인
     # =========================
 
     if query.from_user.id != target_user_id:
@@ -358,7 +439,23 @@ async def check_subscription(
         return
 
     # =========================
-    # 실제 공지사항 구독 확인
+    # 메인방에도 실제로 있는지 확인
+    # =========================
+
+    main_member = await is_main_group_member(
+        context,
+        target_user_id,
+    )
+
+    if not main_member:
+        await query.answer(
+            "서 울 메인방 회원이 아닙니다.",
+            show_alert=True,
+        )
+        return
+
+    # =========================
+    # 공지채널 구독 확인
     # =========================
 
     subscribed = await is_subscribed(
@@ -374,7 +471,6 @@ async def check_subscription(
         )
         return
 
-    # 구독 인증 성공
     await query.answer(
         "구독이 확인되었습니다!"
     )
@@ -382,27 +478,130 @@ async def check_subscription(
     user = query.from_user
     chat = query.message.chat
 
-    # 기존 구독/구독완료 인증창 삭제
+    # 기존 인증창 삭제
     try:
         await query.message.delete()
 
     except Exception as e:
-        print(f"인증 메시지 삭제 오류: {e}")
+        print(
+            f"인증 메시지 삭제 오류: {e}"
+        )
 
-    # =========================
-    # 정상 환영문구 + 6개 메뉴
-    # =========================
+    # 환영문구 + 메뉴
+    name = (
+        user.full_name
+        or user.first_name
+        or "회원"
+    )
 
-    name = user.full_name or user.first_name or "회원"
-
-    text, entities = build_welcome_message(name)
+    text, entities = build_welcome_message(
+        name
+    )
 
     await context.bot.send_message(
         chat_id=chat.id,
         text=text,
         entities=entities,
-        reply_markup=InlineKeyboardMarkup(BUTTONS),
+        reply_markup=InlineKeyboardMarkup(
+            BUTTONS
+        ),
     )
+
+
+# =========================
+# 6개 메뉴 클릭
+# =========================
+
+async def menu_click(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    query = update.callback_query
+
+    if not query:
+        return
+
+    user_id = query.from_user.id
+
+    # =========================
+    # 1. 메인방 회원 검사
+    # =========================
+
+    main_member = await is_main_group_member(
+        context,
+        user_id,
+    )
+
+    if not main_member:
+        await query.answer(
+            "서 울 메인방 회원만 이용할 수 있습니다.",
+            show_alert=True,
+        )
+        return
+
+    # =========================
+    # 2. 공지채널 구독 검사
+    # =========================
+
+    subscribed = await is_subscribed(
+        context,
+        user_id,
+    )
+
+    if not subscribed:
+        await query.answer(
+            "공지사항 채널을 먼저 구독해주세요.",
+            show_alert=True,
+        )
+        return
+
+    # =========================
+    # 메뉴 확인
+    # =========================
+
+    try:
+        menu_key = query.data.split(":")[1]
+
+        menu_url = MENU_URLS[menu_key]
+        menu_name = MENU_NAMES[menu_key]
+
+    except (IndexError, KeyError):
+        await query.answer(
+            "메뉴 정보를 찾을 수 없습니다.",
+            show_alert=True,
+        )
+        return
+
+    # =========================
+    # 둘 다 통과한 사람에게만
+    # 실제 링크 개인메시지 전송
+    # =========================
+
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=f"{menu_name}\n\n{menu_url}",
+            disable_web_page_preview=True,
+        )
+
+        await query.answer(
+            f"{menu_name} 이동 링크를 개인메시지로 보내드렸습니다."
+        )
+
+    except (Forbidden, BadRequest):
+
+        await query.answer(
+            "처음 한 번만 Seoul_freebot 개인채팅에서 /start를 눌러주세요.",
+            show_alert=True,
+        )
+
+    except Exception as e:
+        print(f"메뉴 전송 오류: {e}")
+
+        await query.answer(
+            "링크 전송 중 오류가 발생했습니다.",
+            show_alert=True,
+        )
 
 
 # =========================
@@ -420,9 +619,12 @@ async def get_emoji_id(
 
     found_ids = []
 
-    for entity in (message.entities or []):
+    for entity in (
+        message.entities or []
+    ):
         if (
-            entity.type == MessageEntity.CUSTOM_EMOJI
+            entity.type
+            == MessageEntity.CUSTOM_EMOJI
             and entity.custom_emoji_id
         ):
             found_ids.append(
@@ -459,7 +661,7 @@ def main():
         .build()
     )
 
-    # 신규회원 입장 감지
+    # 신규회원 입장
     app.add_handler(
         MessageHandler(
             filters.StatusUpdate.NEW_CHAT_MEMBERS,
@@ -467,7 +669,7 @@ def main():
         )
     )
 
-    # 구독 완료 버튼
+    # 구독 완료
     app.add_handler(
         CallbackQueryHandler(
             check_subscription,
@@ -475,7 +677,15 @@ def main():
         )
     )
 
-    # 개인채팅 움직이는 이모지 ID
+    # 6개 메뉴
+    app.add_handler(
+        CallbackQueryHandler(
+            menu_click,
+            pattern=r"^menu:",
+        )
+    )
+
+    # 개인채팅 이모지 ID 확인
     app.add_handler(
         MessageHandler(
             filters.ChatType.PRIVATE,
