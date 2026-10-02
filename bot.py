@@ -30,13 +30,8 @@ NOTICE_URL = "https://t.me/Sexnotice"
 # 구독 인증 움직이는 이모지
 # =========================
 
-# 첫 줄 환영 이모지
 SUB_WELCOME_EMOJI_ID = "5413825479406789631"
-
-# 구독 ( 들어가기 ) 버튼
 SUB_BUTTON_EMOJI_ID = "5429633836684157942"
-
-# 구독 완료 ( 입장 완료 ) 버튼
 SUB_DONE_EMOJI_ID = "5413617405421167103"
 
 
@@ -56,46 +51,61 @@ MAIN_EMOJI_ID = "5267239001508554968"
 
 
 # =========================
-# 기존 메뉴 버튼 6개
+# 실제 메뉴 주소
+# =========================
+
+MENU_URLS = {
+    "notice": "https://t.me/Sexnotice",
+    "waiting": "https://t.me/+FnSLuMpzKCc0MTM1",
+    "links": "https://t.me/SexLinker2",
+    "neto": "https://t.me/GoodSexer2",
+    "body": "https://t.me/BodyGood2",
+    "partner": "https://t.me/Kingsexer",
+}
+
+
+# =========================
+# 메뉴 버튼
+# 구독 여부 확인을 위해 callback 방식 사용
 # =========================
 
 BUTTONS = [
     [
         InlineKeyboardButton(
             "공지사항",
-            url="https://t.me/Sexnotice",
-            icon_custom_emoji_id="5332312390312668778"
+            callback_data="menu:notice",
+            icon_custom_emoji_id="5332312390312668778",
         ),
         InlineKeyboardButton(
             "대기조방",
-            url="https://t.me/+FnSLuMpzKCc0MTM1",
-            icon_custom_emoji_id="5332381569350905644"
+            callback_data="menu:waiting",
+            icon_custom_emoji_id="5332381569350905644",
         ),
     ],
     [
         InlineKeyboardButton(
             "링크모아방",
-            url="https://t.me/SexLinker2",
-            icon_custom_emoji_id="5332822842880832998"
+            callback_data="menu:links",
+            icon_custom_emoji_id="5332822842880832998",
         ),
         InlineKeyboardButton(
             "네토방",
-            url="https://t.me/GoodSexer2",
-            icon_custom_emoji_id="5332443897916306318"
+            callback_data="menu:neto",
+            icon_custom_emoji_id="5332443897916306318",
         ),
     ],
     [
         InlineKeyboardButton(
             "전국 몸매자랑방",
-            url="https://t.me/BodyGood2",
-            icon_custom_emoji_id="5330458252930986764"
+            callback_data="menu:body",
+            icon_custom_emoji_id="5330458252930986764",
         ),
     ],
     [
         InlineKeyboardButton(
             "제휴문의",
-            url="https://t.me/Kingsexer",
-            icon_custom_emoji_id="5332817676035176022"
+            callback_data="menu:partner",
+            icon_custom_emoji_id="5332817676035176022",
         ),
     ],
 ]
@@ -191,7 +201,7 @@ def build_welcome_message(name):
 
     text = "".join(parts)
 
-    # 전체 Bold
+    # 전체 굵게
     entities.insert(
         0,
         MessageEntity(
@@ -230,7 +240,7 @@ async def is_subscribed(context, user_id):
 
 
 # =========================
-# 기존 환영문구 + 6개 메뉴 보내기
+# 환영문구 + 6개 메뉴
 # =========================
 
 async def send_normal_welcome(message, member):
@@ -255,11 +265,10 @@ async def send_subscription_message(message, member):
     parts = []
     entities = []
 
-    # 첫 줄 움직이는 이모지
     add_custom_emoji(
         parts,
         entities,
-        SUB_WELCOME_EMOJI_ID
+        SUB_WELCOME_EMOJI_ID,
     )
 
     parts.append(
@@ -315,14 +324,14 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
             member.id,
         )
 
-        # 이미 공지사항을 구독한 사람
+        # 이미 공지사항 구독 중
         if subscribed:
             await send_normal_welcome(
                 message,
                 member,
             )
 
-        # 공지사항 미구독자
+        # 아직 미구독
         else:
             await send_subscription_message(
                 message,
@@ -331,7 +340,7 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# 구독 완료 ( 입장 완료 ) 버튼
+# 구독 완료 ( 입장 완료 )
 # =========================
 
 async def check_subscription(
@@ -351,10 +360,7 @@ async def check_subscription(
         await query.answer()
         return
 
-    # =====================================
-    # 다른 사람이 남의 인증버튼 누르는 것 차단
-    # =====================================
-
+    # 다른 사람이 남의 입장 완료 버튼 사용 불가
     if query.from_user.id != target_user_id:
         await query.answer(
             "본인의 입장 완료 버튼만 사용할 수 있습니다.",
@@ -362,16 +368,12 @@ async def check_subscription(
         )
         return
 
-    # =====================================
-    # 실제 공지사항 구독 여부 확인
-    # =====================================
-
+    # 실제 공지사항 구독 확인
     subscribed = await is_subscribed(
         context,
         target_user_id,
     )
 
-    # 아직 공지사항 미구독
     if not subscribed:
         await query.answer(
             '먼저 "구독 ( 들어가기 )" 버튼을 눌러 '
@@ -380,10 +382,7 @@ async def check_subscription(
         )
         return
 
-    # =====================================
-    # 본인 + 실제 구독 확인 성공
-    # =====================================
-
+    # 구독 성공
     await query.answer(
         "구독이 확인되었습니다!"
     )
@@ -391,14 +390,13 @@ async def check_subscription(
     user = query.from_user
     chat = query.message.chat
 
-    # 인증 메시지 자동 삭제
+    # 구독 인증창만 즉시 삭제
     try:
         await query.message.delete()
-
     except Exception as e:
         print(f"인증 메시지 삭제 오류: {e}")
 
-    # 기존 환영문구 + 6개 버튼 표시
+    # 환영문구 + 6개 메뉴
     name = user.full_name or user.first_name or "회원"
 
     text, entities = build_welcome_message(name)
@@ -409,6 +407,63 @@ async def check_subscription(
         entities=entities,
         reply_markup=InlineKeyboardMarkup(BUTTONS),
     )
+
+
+# =========================
+# 6개 메뉴 클릭
+# =========================
+
+async def menu_click(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    query = update.callback_query
+
+    if not query:
+        return
+
+    # 버튼을 실제로 누른 사람의 구독 여부 확인
+    subscribed = await is_subscribed(
+        context,
+        query.from_user.id,
+    )
+
+    # 미구독자는 다른 사람의 메뉴도 이용 불가
+    if not subscribed:
+        await query.answer(
+            "공지사항 채널을 먼저 구독해주세요.",
+            show_alert=True,
+        )
+        return
+
+    try:
+        menu_name = query.data.split(":")[1]
+        url = MENU_URLS[menu_name]
+
+    except (IndexError, KeyError):
+        await query.answer(
+            "메뉴 정보를 찾을 수 없습니다.",
+            show_alert=True,
+        )
+        return
+
+    await query.answer(
+        "이동 링크를 보내드립니다."
+    )
+
+    # 구독 확인된 사람에게만 링크 전송
+    try:
+        await context.bot.send_message(
+            chat_id=query.from_user.id,
+            text=f"아래 링크를 눌러 이동해주세요.\n\n{url}",
+            disable_web_page_preview=True,
+        )
+
+    except Exception:
+        await query.answer(
+            "먼저 Seoul_freebot과 개인채팅에서 /start를 눌러주세요.",
+            show_alert=True,
+        )
 
 
 # =========================
@@ -465,7 +520,7 @@ def main():
         .build()
     )
 
-    # 신규 회원 입장
+    # 신규회원
     app.add_handler(
         MessageHandler(
             filters.StatusUpdate.NEW_CHAT_MEMBERS,
@@ -473,7 +528,7 @@ def main():
         )
     )
 
-    # 구독 완료 버튼
+    # 구독 완료
     app.add_handler(
         CallbackQueryHandler(
             check_subscription,
@@ -481,7 +536,15 @@ def main():
         )
     )
 
-    # 개인채팅 움직이는 이모지 ID 확인
+    # 6개 메뉴
+    app.add_handler(
+        CallbackQueryHandler(
+            menu_click,
+            pattern=r"^menu:",
+        )
+    )
+
+    # 개인채팅 움직이는 이모지 ID
     app.add_handler(
         MessageHandler(
             filters.ChatType.PRIVATE,
