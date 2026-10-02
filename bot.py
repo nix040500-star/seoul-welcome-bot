@@ -1,32 +1,38 @@
 import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, MessageHandler, ContextTypes, filters
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    MessageEntity,
+)
+from telegram.ext import (
+    Application,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 
 TOKEN = os.environ["BOT_TOKEN"]
 
-# =========================
-# 환영 문구
-# =========================
 
-WELCOME_TEXT = """ {name}님, 🔤🔤🔤🔤🔤에 오신걸 환영합니다.
+# ==================================================
+# 움직이는 CUSTOM EMOJI ID
+# ==================================================
 
-🤬🤬눈팅 및 타업체 홍보 추방🤬🤬
+TITLE_EMOJI_IDS = [
+    "5434018732005412781",
+    "5386800802151025866",
+    "5431554494519329784",
+    "5436174182817744875",
+    "5431726486484698393",
+]
 
-🤬🤬방 분위기 흐리는 행동 추방🤬🤬
-
-🤬🤬몸매 좋은사람은 전국 몸매🤬🤬
-
-
-😊 여성 인증하면 본인 홍보가능 
-😄 제휴 문의 언제든지 환영
-🥳 이벤트 00방 진행중
-
-원하시는 메뉴를 아래에서 선택해주세요."""
+MAIN_EMOJI_ID = "5267239001508554968"
 
 
-# =========================
+# ==================================================
 # 버튼
-# =========================
+# ==================================================
 
 BUTTONS = [
     [
@@ -64,11 +70,138 @@ BUTTONS = [
 ]
 
 
-# =========================
-# 새 회원 자동 환영
-# =========================
+# ==================================================
+# UTF-16 위치 계산
+# Telegram MessageEntity는 UTF-16 기준
+# ==================================================
 
-async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def utf16_len(text):
+    return len(text.encode("utf-16-le")) // 2
+
+
+def add_custom_emoji(text_parts, entities, emoji_id):
+    """
+    움직이는 Custom Emoji 하나 추가
+    화면상 placeholder는 ❤ 사용
+    """
+    current_text = "".join(text_parts)
+    offset = utf16_len(current_text)
+
+    placeholder = "❤"
+    text_parts.append(placeholder)
+
+    entities.append(
+        MessageEntity(
+            type=MessageEntity.CUSTOM_EMOJI,
+            offset=offset,
+            length=utf16_len(placeholder),
+            custom_emoji_id=emoji_id,
+        )
+    )
+
+
+# ==================================================
+# 환영 메시지 생성
+# ==================================================
+
+def build_welcome_message(name):
+    parts = []
+    entities = []
+
+    # ---------- 첫 줄 ----------
+
+    parts.append(f"{name}님, ")
+
+    # 움직이는 글자 5개
+    for emoji_id in TITLE_EMOJI_IDS:
+        add_custom_emoji(
+            parts,
+            entities,
+            emoji_id
+        )
+
+    parts.append("에 오신걸 환영합니다.\n\n")
+
+    # ---------- 추방 안내 1 ----------
+
+    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+
+    parts.append("눈팅 및 타업체 홍보 추방")
+
+    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+
+    parts.append("\n\n")
+
+    # ---------- 추방 안내 2 ----------
+
+    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+
+    parts.append("방 분위기 흐리는 행동 추방")
+
+    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+
+    parts.append("\n\n")
+
+    # ---------- 몸매 ----------
+
+    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+
+    parts.append("몸매 좋은사람은 전국 몸매")
+
+    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+
+    parts.append("\n\n\n")
+
+    # ---------- 여성 인증 ----------
+
+    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    parts.append(" 여성 인증하면 본인 홍보가능\n")
+
+    # ---------- 제휴 문의 ----------
+
+    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    parts.append(" 제휴 문의 언제든지 환영\n")
+
+    # ---------- 이벤트 ----------
+
+    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    parts.append(" 이벤트 00방 진행중\n\n")
+
+    # ---------- 마지막 ----------
+
+    parts.append(
+        "원하시는 메뉴를 아래에서 선택해주세요."
+    )
+
+    text = "".join(parts)
+
+    # 전체 문구 Bold
+    entities.insert(
+        0,
+        MessageEntity(
+            type=MessageEntity.BOLD,
+            offset=0,
+            length=utf16_len(text),
+        )
+    )
+
+    return text, entities
+
+
+# ==================================================
+# 새 회원 자동 환영
+# ==================================================
+
+async def welcome(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
     message = update.effective_message
 
     if not message or not message.new_chat_members:
@@ -81,19 +214,29 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if member.is_bot:
             continue
 
-        name = member.full_name or member.first_name or "회원"
+        name = (
+            member.full_name
+            or member.first_name
+            or "회원"
+        )
+
+        text, entities = build_welcome_message(name)
 
         await message.reply_text(
-            WELCOME_TEXT.format(name=name),
-            reply_markup=keyboard
+            text=text,
+            entities=entities,
+            reply_markup=keyboard,
         )
 
 
-# =========================
-# 움직이는 이모지 ID 추출
-# =========================
+# ==================================================
+# CUSTOM EMOJI ID 추출 기능
+# ==================================================
 
-async def emoji_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_emoji_id(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
     message = update.effective_message
 
     if not message:
@@ -101,61 +244,52 @@ async def emoji_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     found_ids = []
 
-    # 텍스트 Premium Custom Emoji
+    # 텍스트 Custom Emoji
     for entity in (message.entities or []):
 
         if (
-            entity.type == "custom_emoji"
+            entity.type == MessageEntity.CUSTOM_EMOJI
             and entity.custom_emoji_id
         ):
-            found_ids.append(entity.custom_emoji_id)
+            found_ids.append(
+                entity.custom_emoji_id
+            )
 
-    # 캡션 Custom Emoji
-    for entity in (message.caption_entities or []):
+    # 스티커 Custom Emoji
+    if (
+        message.sticker
+        and message.sticker.custom_emoji_id
+    ):
+        found_ids.append(
+            message.sticker.custom_emoji_id
+        )
 
-        if (
-            entity.type == "custom_emoji"
-            and entity.custom_emoji_id
-        ):
-            found_ids.append(entity.custom_emoji_id)
-
-    # Custom Emoji Sticker
-    if message.sticker:
-
-        custom_id = message.sticker.custom_emoji_id
-
-        if custom_id:
-            found_ids.append(custom_id)
-
-    # 중복 ID 제거
-    found_ids = list(dict.fromkeys(found_ids))
+    found_ids = list(
+        dict.fromkeys(found_ids)
+    )
 
     if found_ids:
 
-        result = (
-            "✅ CUSTOM EMOJI ID\n\n"
+        await message.reply_text(
+            "✅ 움직이는 이모지 ID\n\n"
             + "\n".join(found_ids)
         )
 
-        await message.reply_text(result)
 
-    elif message.chat.type == "private":
-
-        await message.reply_text(
-            "❌ Custom Emoji ID를 찾지 못했습니다.\n"
-            "움직이는 Premium 이모지를 보내주세요."
-        )
-
-
-# =========================
+# ==================================================
 # 봇 실행
-# =========================
+# ==================================================
 
 def main():
 
-    app = Application.builder().token(TOKEN).build()
+    app = (
+        Application
+        .builder()
+        .token(TOKEN)
+        .build()
+    )
 
-    # 새 회원 입장 감지
+    # 새 회원 자동 환영
     app.add_handler(
         MessageHandler(
             filters.StatusUpdate.NEW_CHAT_MEMBERS,
@@ -163,11 +297,11 @@ def main():
         )
     )
 
-    # 개인톡에서 이모지 ID 추출
+    # 개인톡 Custom Emoji ID 추출
     app.add_handler(
         MessageHandler(
             filters.ChatType.PRIVATE,
-            emoji_id
+            get_emoji_id
         )
     )
 
