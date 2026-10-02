@@ -1,12 +1,14 @@
 import os
+
 from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     MessageEntity,
 )
+
 from telegram.constants import ChatMemberStatus
-from telegram.error import BadRequest, Forbidden
+
 from telegram.ext import (
     Application,
     MessageHandler,
@@ -15,36 +17,37 @@ from telegram.ext import (
     filters,
 )
 
+
 TOKEN = os.environ["BOT_TOKEN"]
 
 
-# =========================
+# ==================================================
 # 서 울 메인방
-# =========================
+# ==================================================
 
 MAIN_GROUP_ID = -1003796235018
 
 
-# =========================
+# ==================================================
 # 공지사항 채널
-# =========================
+# ==================================================
 
 NOTICE_CHANNEL = "@Sexnotice"
 NOTICE_URL = "https://t.me/Sexnotice"
 
 
-# =========================
+# ==================================================
 # 구독 인증 움직이는 이모지
-# =========================
+# ==================================================
 
 SUB_WELCOME_EMOJI_ID = "5413825479406789631"
 SUB_BUTTON_EMOJI_ID = "5429633836684157942"
 SUB_DONE_EMOJI_ID = "5413617405421167103"
 
 
-# =========================
+# ==================================================
 # 환영문구 움직이는 이모지
-# =========================
+# ==================================================
 
 TITLE_EMOJI_IDS = [
     "5434018732005412781",
@@ -57,93 +60,76 @@ TITLE_EMOJI_IDS = [
 MAIN_EMOJI_ID = "5267239001508554968"
 
 
-# =========================
-# 메뉴 주소
-# =========================
-
-MENU_URLS = {
-    "notice": "https://t.me/Sexnotice",
-    "waiting": "https://t.me/+FnSLuMpzKCc0MTM1",
-    "links": "https://t.me/SexLinker2",
-    "neto": "https://t.me/GoodSexer2",
-    "body": "https://t.me/BodyGood2",
-    "partner": "https://t.me/Kingsexer",
-}
-
-
-MENU_NAMES = {
-    "notice": "공지사항",
-    "waiting": "대기조방",
-    "links": "링크모아방",
-    "neto": "네토방",
-    "body": "전국 몸매자랑방",
-    "partner": "제휴문의",
-}
-
-
-# =========================
-# 6개 메뉴
+# ==================================================
+# 최종 메뉴
 #
-# 중요:
-# URL 직접 이동 방식이 아님.
-# 누른 사람을 먼저 검사한다.
-# =========================
+# URL 방식
+# 터치하면 바로 해당 방으로 이동
+# /start 필요 없음
+# ==================================================
 
 BUTTONS = [
     [
         InlineKeyboardButton(
             "공지사항",
-            callback_data="menu:notice",
+            url="https://t.me/Sexnotice",
             icon_custom_emoji_id="5332312390312668778",
         ),
         InlineKeyboardButton(
             "대기조방",
-            callback_data="menu:waiting",
+            url="https://t.me/+FnSLuMpzKCc0MTM1",
             icon_custom_emoji_id="5332381569350905644",
         ),
     ],
     [
         InlineKeyboardButton(
             "링크모아방",
-            callback_data="menu:links",
+            url="https://t.me/SexLinker2",
             icon_custom_emoji_id="5332822842880832998",
         ),
         InlineKeyboardButton(
             "네토방",
-            callback_data="menu:neto",
+            url="https://t.me/GoodSexer2",
             icon_custom_emoji_id="5332443897916306318",
         ),
     ],
     [
         InlineKeyboardButton(
             "전국 몸매자랑방",
-            callback_data="menu:body",
+            url="https://t.me/BodyGood2",
             icon_custom_emoji_id="5330458252930986764",
         ),
     ],
     [
         InlineKeyboardButton(
             "제휴문의",
-            callback_data="menu:partner",
+            url="https://t.me/Kingsexer",
             icon_custom_emoji_id="5332817676035176022",
         ),
     ],
 ]
 
 
-# =========================
-# UTF-16 계산
-# =========================
+# ==================================================
+# UTF-16 길이 계산
+# ==================================================
 
 def utf16_len(text):
     return len(text.encode("utf-16-le")) // 2
 
 
+# ==================================================
+# 움직이는 이모지 추가
+# ==================================================
+
 def add_custom_emoji(parts, entities, emoji_id):
+
     current_text = "".join(parts)
+
     offset = utf16_len(current_text)
 
     placeholder = "❤"
+
     parts.append(placeholder)
 
     entities.append(
@@ -156,63 +142,148 @@ def add_custom_emoji(parts, entities, emoji_id):
     )
 
 
-# =========================
-# 환영문구
-# =========================
+# ==================================================
+# 환영문구 만들기
+# ==================================================
 
 def build_welcome_message(name):
+
     parts = []
     entities = []
 
     parts.append(f"{name}님, ")
 
     for emoji_id in TITLE_EMOJI_IDS:
+
         add_custom_emoji(
             parts,
             entities,
             emoji_id,
         )
 
-    parts.append("에 오신걸 환영합니다.\n\n")
+    parts.append(
+        "에 오신걸 환영합니다.\n\n"
+    )
 
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    add_custom_emoji(
+        parts,
+        entities,
+        MAIN_EMOJI_ID,
+    )
 
-    parts.append("눈팅 및 타업체 홍보 추방")
+    add_custom_emoji(
+        parts,
+        entities,
+        MAIN_EMOJI_ID,
+    )
 
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    parts.append(
+        "눈팅 및 타업체 홍보 추방"
+    )
+
+    add_custom_emoji(
+        parts,
+        entities,
+        MAIN_EMOJI_ID,
+    )
+
+    add_custom_emoji(
+        parts,
+        entities,
+        MAIN_EMOJI_ID,
+    )
 
     parts.append("\n\n")
 
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    add_custom_emoji(
+        parts,
+        entities,
+        MAIN_EMOJI_ID,
+    )
 
-    parts.append("방 분위기 흐리는 행동 추방")
+    add_custom_emoji(
+        parts,
+        entities,
+        MAIN_EMOJI_ID,
+    )
 
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    parts.append(
+        "방 분위기 흐리는 행동 추방"
+    )
+
+    add_custom_emoji(
+        parts,
+        entities,
+        MAIN_EMOJI_ID,
+    )
+
+    add_custom_emoji(
+        parts,
+        entities,
+        MAIN_EMOJI_ID,
+    )
 
     parts.append("\n\n")
 
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    add_custom_emoji(
+        parts,
+        entities,
+        MAIN_EMOJI_ID,
+    )
 
-    parts.append("몸매 좋은사람은 전국 몸매")
+    add_custom_emoji(
+        parts,
+        entities,
+        MAIN_EMOJI_ID,
+    )
 
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    parts.append(
+        "몸매 좋은사람은 전국 몸매"
+    )
+
+    add_custom_emoji(
+        parts,
+        entities,
+        MAIN_EMOJI_ID,
+    )
+
+    add_custom_emoji(
+        parts,
+        entities,
+        MAIN_EMOJI_ID,
+    )
 
     parts.append("\n\n\n")
 
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-    parts.append(" 여성 인증하면 본인 홍보가능\n")
+    add_custom_emoji(
+        parts,
+        entities,
+        MAIN_EMOJI_ID,
+    )
 
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-    parts.append(" 제휴 문의 언제든지 환영\n")
+    parts.append(
+        " 여성 인증하면 본인 홍보가능\n"
+    )
 
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-    parts.append(" 이벤트 00방 진행중\n\n")
+    add_custom_emoji(
+        parts,
+        entities,
+        MAIN_EMOJI_ID,
+    )
+
+    parts.append(
+        " 제휴 문의 언제든지 환영\n"
+    )
+
+    add_custom_emoji(
+        parts,
+        entities,
+        MAIN_EMOJI_ID,
+    )
+
+    parts.append(
+        " 이벤트 00방 진행중\n\n"
+    )
 
     parts.append(
         "원하시는 메뉴를 아래에서 선택해주세요."
@@ -220,6 +291,7 @@ def build_welcome_message(name):
 
     text = "".join(parts)
 
+    # 전체 굵게
     entities.insert(
         0,
         MessageEntity(
@@ -232,12 +304,17 @@ def build_welcome_message(name):
     return text, entities
 
 
-# =========================
-# 공지채널 구독 확인
-# =========================
+# ==================================================
+# 공지채널 구독 여부 확인
+# ==================================================
 
-async def is_subscribed(context, user_id):
+async def is_subscribed(
+    context,
+    user_id,
+):
+
     try:
+
         member = await context.bot.get_chat_member(
             chat_id=NOTICE_CHANNEL,
             user_id=user_id,
@@ -250,19 +327,25 @@ async def is_subscribed(context, user_id):
         )
 
     except Exception as e:
-        print(f"공지채널 확인 오류: {e}")
+
+        print(
+            f"공지채널 구독 확인 오류: {e}"
+        )
+
         return False
 
 
-# =========================
-# 메인방 회원 확인
-# =========================
+# ==================================================
+# 메인방 회원 여부 확인
+# ==================================================
 
 async def is_main_group_member(
     context,
     user_id,
 ):
+
     try:
+
         member = await context.bot.get_chat_member(
             chat_id=MAIN_GROUP_ID,
             user_id=user_id,
@@ -276,18 +359,23 @@ async def is_main_group_member(
         )
 
     except Exception as e:
-        print(f"메인방 회원 확인 오류: {e}")
+
+        print(
+            f"메인방 회원 확인 오류: {e}"
+        )
+
         return False
 
 
-# =========================
-# 정상 환영문구
-# =========================
+# ==================================================
+# 정상 환영문구 + URL 메뉴판
+# ==================================================
 
 async def send_normal_welcome(
     message,
     member,
 ):
+
     name = (
         member.full_name
         or member.first_name
@@ -307,14 +395,15 @@ async def send_normal_welcome(
     )
 
 
-# =========================
-# 미구독자 인증창
-# =========================
+# ==================================================
+# 미구독자에게 구독 인증창 표시
+# ==================================================
 
 async def send_subscription_message(
     message,
     member,
 ):
+
     name = (
         member.full_name
         or member.first_name
@@ -364,14 +453,15 @@ async def send_subscription_message(
     )
 
 
-# =========================
+# ==================================================
 # 신규회원 입장
-# =========================
+# ==================================================
 
 async def welcome(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     message = update.effective_message
 
     if (
@@ -382,81 +472,116 @@ async def welcome(
 
     for member in message.new_chat_members:
 
+        # 봇은 제외
         if member.is_bot:
             continue
 
+        # 공지채널 구독 확인
         subscribed = await is_subscribed(
             context,
             member.id,
         )
 
-        # 이미 공지채널 구독자
+        # ==========================================
+        # 이미 공지채널 구독 중
+        # 바로 정상 메뉴판 표시
+        # ==========================================
+
         if subscribed:
+
             await send_normal_welcome(
                 message,
                 member,
             )
 
-        # 미구독자
+        # ==========================================
+        # 공지채널 미구독
+        # 인증창 표시
+        # ==========================================
+
         else:
+
             await send_subscription_message(
                 message,
                 member,
             )
 
 
-# =========================
-# 구독 완료
-# =========================
+# ==================================================
+# 구독 완료 버튼
+# ==================================================
 
 async def check_subscription(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     query = update.callback_query
 
     if not query:
         return
 
+    # ==============================================
+    # 인증 대상 사용자 ID 가져오기
+    # ==============================================
+
     try:
+
         target_user_id = int(
             query.data.split(":")[1]
         )
 
-    except (IndexError, ValueError):
+    except (
+        IndexError,
+        ValueError,
+    ):
+
         await query.answer()
+
         return
 
-    # =========================
-    # 본인 인증창인지 확인
-    # =========================
 
-    if query.from_user.id != target_user_id:
+    # ==============================================
+    # 다른 사람이 남의 "구독 완료" 누르는 것 차단
+    # ==============================================
+
+    if (
+        query.from_user.id
+        != target_user_id
+    ):
+
         await query.answer(
             "본인의 입장 완료 버튼만 사용할 수 있습니다.",
             show_alert=True,
         )
+
         return
 
-    # =========================
-    # 메인방에도 실제로 있는지 확인
-    # =========================
 
-    main_member = await is_main_group_member(
-        context,
-        target_user_id,
+    # ==============================================
+    # 메인방 회원인지 다시 확인
+    # ==============================================
+
+    main_member = (
+        await is_main_group_member(
+            context,
+            target_user_id,
+        )
     )
 
     if not main_member:
+
         await query.answer(
             "서 울 메인방 회원이 아닙니다.",
             show_alert=True,
         )
+
         return
 
-    # =========================
-    # 공지채널 구독 확인
-    # =========================
+
+    # ==============================================
+    # 공지사항 채널 실제 구독 여부 확인
+    # ==============================================
 
     subscribed = await is_subscribed(
         context,
@@ -464,12 +589,19 @@ async def check_subscription(
     )
 
     if not subscribed:
+
         await query.answer(
             "아직 공지사항 채널 구독이 확인되지 않았습니다.\n"
             "먼저 구독 후 다시 눌러주세요.",
             show_alert=True,
         )
+
         return
+
+
+    # ==============================================
+    # 모든 인증 성공
+    # ==============================================
 
     await query.answer(
         "구독이 확인되었습니다!"
@@ -478,24 +610,34 @@ async def check_subscription(
     user = query.from_user
     chat = query.message.chat
 
-    # 기존 인증창 삭제
+
+    # ==============================================
+    # 기존 구독 인증창 삭제
+    # ==============================================
+
     try:
+
         await query.message.delete()
 
     except Exception as e:
+
         print(
             f"인증 메시지 삭제 오류: {e}"
         )
 
-    # 환영문구 + 메뉴
+
+    # ==============================================
+    # URL 방식 정상 메뉴판 생성
+    # ==============================================
+
     name = (
         user.full_name
         or user.first_name
         or "회원"
     )
 
-    text, entities = build_welcome_message(
-        name
+    text, entities = (
+        build_welcome_message(name)
     )
 
     await context.bot.send_message(
@@ -508,110 +650,15 @@ async def check_subscription(
     )
 
 
-# =========================
-# 6개 메뉴 클릭
-# =========================
-
-async def menu_click(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-    query = update.callback_query
-
-    if not query:
-        return
-
-    user_id = query.from_user.id
-
-    # =========================
-    # 1. 메인방 회원 검사
-    # =========================
-
-    main_member = await is_main_group_member(
-        context,
-        user_id,
-    )
-
-    if not main_member:
-        await query.answer(
-            "서 울 메인방 회원만 이용할 수 있습니다.",
-            show_alert=True,
-        )
-        return
-
-    # =========================
-    # 2. 공지채널 구독 검사
-    # =========================
-
-    subscribed = await is_subscribed(
-        context,
-        user_id,
-    )
-
-    if not subscribed:
-        await query.answer(
-            "공지사항 채널을 먼저 구독해주세요.",
-            show_alert=True,
-        )
-        return
-
-    # =========================
-    # 메뉴 확인
-    # =========================
-
-    try:
-        menu_key = query.data.split(":")[1]
-
-        menu_url = MENU_URLS[menu_key]
-        menu_name = MENU_NAMES[menu_key]
-
-    except (IndexError, KeyError):
-        await query.answer(
-            "메뉴 정보를 찾을 수 없습니다.",
-            show_alert=True,
-        )
-        return
-
-    # =========================
-    # 둘 다 통과한 사람에게만
-    # 실제 링크 개인메시지 전송
-    # =========================
-
-    try:
-        await context.bot.send_message(
-            chat_id=user_id,
-            text=f"{menu_name}\n\n{menu_url}",
-            disable_web_page_preview=True,
-        )
-
-        await query.answer(
-            f"{menu_name} 이동 링크를 개인메시지로 보내드렸습니다."
-        )
-
-    except (Forbidden, BadRequest):
-
-        await query.answer(
-            "처음 한 번만 Seoul_freebot 개인채팅에서 /start를 눌러주세요.",
-            show_alert=True,
-        )
-
-    except Exception as e:
-        print(f"메뉴 전송 오류: {e}")
-
-        await query.answer(
-            "링크 전송 중 오류가 발생했습니다.",
-            show_alert=True,
-        )
-
-
-# =========================
-# 움직이는 이모지 ID 추출
-# =========================
+# ==================================================
+# 개인채팅 움직이는 이모지 ID 확인
+# ==================================================
 
 async def get_emoji_id(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     message = update.effective_message
 
     if not message:
@@ -622,11 +669,13 @@ async def get_emoji_id(
     for entity in (
         message.entities or []
     ):
+
         if (
             entity.type
             == MessageEntity.CUSTOM_EMOJI
             and entity.custom_emoji_id
         ):
+
             found_ids.append(
                 entity.custom_emoji_id
             )
@@ -635,6 +684,7 @@ async def get_emoji_id(
         message.sticker
         and message.sticker.custom_emoji_id
     ):
+
         found_ids.append(
             message.sticker.custom_emoji_id
         )
@@ -644,24 +694,27 @@ async def get_emoji_id(
     )
 
     if found_ids:
+
         await message.reply_text(
             "✅ 움직이는 이모지 ID\n\n"
             + "\n".join(found_ids)
         )
 
 
-# =========================
-# 실행
-# =========================
+# ==================================================
+# 봇 실행
+# ==================================================
 
 def main():
+
     app = (
         Application.builder()
         .token(TOKEN)
         .build()
     )
 
-    # 신규회원 입장
+
+    # 신규회원 입장 감지
     app.add_handler(
         MessageHandler(
             filters.StatusUpdate.NEW_CHAT_MEMBERS,
@@ -669,7 +722,8 @@ def main():
         )
     )
 
-    # 구독 완료
+
+    # 구독 완료 버튼
     app.add_handler(
         CallbackQueryHandler(
             check_subscription,
@@ -677,21 +731,15 @@ def main():
         )
     )
 
-    # 6개 메뉴
-    app.add_handler(
-        CallbackQueryHandler(
-            menu_click,
-            pattern=r"^menu:",
-        )
-    )
 
-    # 개인채팅 이모지 ID 확인
+    # 개인채팅 움직이는 이모지 ID
     app.add_handler(
         MessageHandler(
             filters.ChatType.PRIVATE,
             get_emoji_id,
         )
     )
+
 
     app.run_polling(
         allowed_updates=Update.ALL_TYPES
