@@ -5,14 +5,25 @@ from telegram import (
     InlineKeyboardMarkup,
     MessageEntity,
 )
+from telegram.constants import ChatMemberStatus
+from telegram.error import BadRequest
 from telegram.ext import (
     Application,
     MessageHandler,
+    CallbackQueryHandler,
     ContextTypes,
     filters,
 )
 
 TOKEN = os.environ["BOT_TOKEN"]
+
+
+# =========================
+# 공지사항 채널
+# =========================
+
+NOTICE_CHANNEL = "@Sexnotice"
+NOTICE_URL = "https://t.me/Sexnotice"
 
 
 # =========================
@@ -31,7 +42,7 @@ MAIN_EMOJI_ID = "5267239001508554968"
 
 
 # =========================
-# 메뉴 버튼
+# 기존 메뉴 버튼
 # =========================
 
 BUTTONS = [
@@ -102,7 +113,7 @@ def add_custom_emoji(parts, entities, emoji_id):
 
 
 # =========================
-# 환영문구 만들기
+# 기존 환영문구 만들기
 # =========================
 
 def build_welcome_message(name):
@@ -111,13 +122,11 @@ def build_welcome_message(name):
 
     parts.append(f"{name}님, ")
 
-    # 첫 줄 움직이는 이모지 5개
     for emoji_id in TITLE_EMOJI_IDS:
         add_custom_emoji(parts, entities, emoji_id)
 
     parts.append("에 오신걸 환영합니다.\n\n")
 
-    # 눈팅 및 타업체 홍보
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
 
@@ -128,7 +137,6 @@ def build_welcome_message(name):
 
     parts.append("\n\n")
 
-    # 방 분위기
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
 
@@ -139,7 +147,6 @@ def build_welcome_message(name):
 
     parts.append("\n\n")
 
-    # 몸매
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
 
@@ -150,15 +157,12 @@ def build_welcome_message(name):
 
     parts.append("\n\n\n")
 
-    # 여성 인증
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
     parts.append(" 여성 인증하면 본인 홍보가능\n")
 
-    # 제휴 문의
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
     parts.append(" 제휴 문의 언제든지 환영\n")
 
-    # 이벤트
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
     parts.append(" 이벤트 00방 진행중\n\n")
 
@@ -166,7 +170,6 @@ def build_welcome_message(name):
 
     text = "".join(parts)
 
-    # 전체 Bold
     entities.insert(
         0,
         MessageEntity(
@@ -180,7 +183,84 @@ def build_welcome_message(name):
 
 
 # =========================
-# 새 회원 자동 환영
+# 공지사항 구독 여부 확인
+# =========================
+
+async def is_subscribed(context, user_id):
+    try:
+        member = await context.bot.get_chat_member(
+            chat_id=NOTICE_CHANNEL,
+            user_id=user_id,
+        )
+
+        return member.status in (
+            ChatMemberStatus.MEMBER,
+            ChatMemberStatus.ADMINISTRATOR,
+            ChatMemberStatus.OWNER,
+        )
+
+    except BadRequest:
+        return False
+
+    except Exception as e:
+        print(f"구독 확인 오류: {e}")
+        return False
+
+
+# =========================
+# 기존 환영문구 보내기
+# =========================
+
+async def send_normal_welcome(message, member):
+    name = member.full_name or member.first_name or "회원"
+
+    text, entities = build_welcome_message(name)
+
+    await message.reply_text(
+        text=text,
+        entities=entities,
+        reply_markup=InlineKeyboardMarkup(BUTTONS),
+    )
+
+
+# =========================
+# 미구독자 인증 메시지
+# =========================
+
+async def send_subscription_message(message, member):
+    name = member.full_name or member.first_name or "회원"
+
+    text = (
+        f"😮 {name} 님 반갑습니다!!\n\n"
+        "방 사용에 앞서 먼저 아래 채널 구독을 해주세요\n"
+        '구독한 후 "구독 완료" 를 누르면 정상 이용 가능합니다.'
+    )
+
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "📢 구독",
+                    url=NOTICE_URL,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "✅ 구독 완료",
+                    callback_data=f"check_sub:{member.id}",
+                )
+            ],
+        ]
+    )
+
+    await message.reply_text(
+        text=text,
+        reply_markup=keyboard,
+    )
+
+
+# =========================
+# 새 회원 입장
 # =========================
 
 async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -189,28 +269,104 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not message or not message.new_chat_members:
         return
 
-    keyboard = InlineKeyboardMarkup(BUTTONS)
-
     for member in message.new_chat_members:
         if member.is_bot:
             continue
 
-        name = member.full_name or member.first_name or "회원"
-
-        text, entities = build_welcome_message(name)
-
-        await message.reply_text(
-            text=text,
-            entities=entities,
-            reply_markup=keyboard,
+        subscribed = await is_subscribed(
+            context,
+            member.id,
         )
+
+        # 이미 공지사항 구독 중
+        if subscribed:
+            await send_normal_welcome(
+                message,
+                member,
+            )
+
+        # 공지사항 미구독
+        else:
+            await send_subscription_message(
+                message,
+                member,
+            )
+
+
+# =========================
+# 구독 완료 버튼
+# =========================
+
+async def check_subscription(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    query = update.callback_query
+
+    if not query:
+        return
+
+    await query.answer()
+
+    try:
+        target_user_id = int(
+            query.data.split(":")[1]
+        )
+    except (IndexError, ValueError):
+        return
+
+    # 다른 사람이 남의 구독완료 버튼 누르는 것 방지
+    if query.from_user.id != target_user_id:
+        await query.answer(
+            "본인의 구독 완료 버튼만 누를 수 있습니다.",
+            show_alert=True,
+        )
+        return
+
+    subscribed = await is_subscribed(
+        context,
+        target_user_id,
+    )
+
+    # 아직 구독 안 함
+    if not subscribed:
+        await query.answer(
+            "아직 공지사항 채널 구독이 확인되지 않았습니다.",
+            show_alert=True,
+        )
+        return
+
+    # 구독 성공
+    user = query.from_user
+    chat = query.message.chat
+
+    # 인증 메시지 삭제
+    try:
+        await query.message.delete()
+    except Exception as e:
+        print(f"인증 메시지 삭제 오류: {e}")
+
+    # 기존 환영문구 + 6개 메뉴 출력
+    name = user.full_name or user.first_name or "회원"
+
+    text, entities = build_welcome_message(name)
+
+    await context.bot.send_message(
+        chat_id=chat.id,
+        text=text,
+        entities=entities,
+        reply_markup=InlineKeyboardMarkup(BUTTONS),
+    )
 
 
 # =========================
 # 움직이는 이모지 ID 추출
 # =========================
 
-async def get_emoji_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_emoji_id(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
     message = update.effective_message
 
     if not message:
@@ -223,12 +379,21 @@ async def get_emoji_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
             entity.type == MessageEntity.CUSTOM_EMOJI
             and entity.custom_emoji_id
         ):
-            found_ids.append(entity.custom_emoji_id)
+            found_ids.append(
+                entity.custom_emoji_id
+            )
 
-    if message.sticker and message.sticker.custom_emoji_id:
-        found_ids.append(message.sticker.custom_emoji_id)
+    if (
+        message.sticker
+        and message.sticker.custom_emoji_id
+    ):
+        found_ids.append(
+            message.sticker.custom_emoji_id
+        )
 
-    found_ids = list(dict.fromkeys(found_ids))
+    found_ids = list(
+        dict.fromkeys(found_ids)
+    )
 
     if found_ids:
         await message.reply_text(
@@ -242,19 +407,33 @@ async def get_emoji_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================
 
 def main():
-    app = Application.builder().token(TOKEN).build()
+    app = (
+        Application.builder()
+        .token(TOKEN)
+        .build()
+    )
 
+    # 신규 회원
     app.add_handler(
         MessageHandler(
             filters.StatusUpdate.NEW_CHAT_MEMBERS,
-            welcome
+            welcome,
         )
     )
 
+    # 구독 완료 버튼
+    app.add_handler(
+        CallbackQueryHandler(
+            check_subscription,
+            pattern=r"^check_sub:",
+        )
+    )
+
+    # 개인채팅 움직이는 이모지 ID
     app.add_handler(
         MessageHandler(
             filters.ChatType.PRIVATE,
-            get_emoji_id
+            get_emoji_id,
         )
     )
 
