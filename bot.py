@@ -55,14 +55,14 @@ BUTTONS = [
         ),
         InlineKeyboardButton(
             "네토방",
-            url="https://t.me/+oTo6bDLCekUxYjU1",
+            url="https://t.me/GoodSexer2",
             icon_custom_emoji_id="5332443897916306318"
         ),
     ],
     [
         InlineKeyboardButton(
             "전국 몸매자랑방",
-            url="https://t.me/+-HAXJwNLVz1lYmNl",
+            url="https://t.me/BodyGood2",
             icon_custom_emoji_id="5330458252930986764"
         ),
     ],
