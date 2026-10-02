@@ -1,96 +1,128 @@
-import os
-import asyncio
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-
-from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    MessageEntity,
-    ChatPermissions,
-)
-
-from telegram.constants import ChatMemberStatus
-
-from telegram.ext import (
-    Application,
-    MessageHandler,
-    CallbackQueryHandler,
-    CommandHandler,
-    ContextTypes,
-    filters,
-)
-
-
-TOKEN = os.environ["BOT_TOKEN"]
 
 
 # ==================================================
-# 서 울 메인방
+# 개인채팅 움직이는 이모지 ID 확인
 # ==================================================
 
-MAIN_GROUP_ID = -1003796235018
+async def get_emoji_id(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    message = update.effective_message
 
+    if not message:
+        return
 
-# ==================================================
-# 공지사항 채널
-# ==================================================
+    found_ids = []
 
-NOTICE_CHANNEL = "@Sexnotice"
-NOTICE_URL = "https://t.me/Sexnotice"
+    for entity in message.entities or []:
 
+        if (
+            entity.type == MessageEntity.CUSTOM_EMOJI
+            and entity.custom_emoji_id
+        ):
+            found_ids.append(
+                entity.custom_emoji_id
+            )
 
-# ==================================================
-# 매일 오전 9시 자동 공지
-# ==================================================
+    if (
+        message.sticker
+        and message.sticker.custom_emoji_id
+    ):
+        found_ids.append(
+            message.sticker.custom_emoji_id
+        )
 
-KST = ZoneInfo("Asia/Seoul")
-DAILY_NOTICE_HOUR = 9
+    found_ids = list(
+        dict.fromkeys(found_ids)
+    )
 
-NOTICE_TITLE_EMOJI_IDS = [
-    "5434018732005412781",
-    "5386800802151025866",
-    "5431554494519329784",
-    "5436174182817744875",
-    "5431726486484698393",
-]
-
-NOTICE_LINE1_EMOJI_ID = "5210820276748566172"
-NOTICE_LINE2_EMOJI_ID = "5213400521301313365"
-NOTICE_WARNING_EMOJI_ID = "5420323339723881652"
-NOTICE_FLAG_EMOJI_ID = "5219863085577155639"
-NOTICE_SMILE_EMOJI_ID = "5217980545576739208"
-
-
-# ==================================================
-# 미구독자 인증창 저장
-#
-# user_id : message_id
-# ==================================================
-
-PENDING_SUBSCRIPTION_MESSAGES = {}
+    if found_ids:
+        await message.reply_text(
+            "✅ 움직이는 이모지 ID\n\n"
+            + "\n".join(found_ids)
+        )
 
 
 # ==================================================
-# 구독 인증 움직이는 이모지
+# 실행
 # ==================================================
 
-SUB_WELCOME_EMOJI_ID = "5413825479406789631"
-SUB_BUTTON_EMOJI_ID = "5429633836684157942"
-SUB_DONE_EMOJI_ID = "5413617405421167103"
+def main():
+    app = (
+        Application.builder()
+        .token(TOKEN)
+        .post_init(post_init)
+        .build()
+    )
 
 
-# ==================================================
-# 환영문구 움직이는 이모지
-# ==================================================
+    # 신규회원
+    app.add_handler(
+        MessageHandler(
+            filters.StatusUpdate.NEW_CHAT_MEMBERS,
+            welcome,
+        )
+    )
 
-TITLE_EMOJI_IDS = [
-    "5434018732005412781",
-    "5386800802151025866",
-    "5431554494519329784",
-    "5436174182817744875",
-    "5431726486484698393",
-]
 
-MAIN_EMOJI_ID = "5267239001508554968"
+    # 회원 퇴장
+    # 구독 인증창 + Telegram 퇴장문구 자동삭제
+    app.add_handler(
+        MessageHandler(
+            filters.StatusUpdate.LEFT_CHAT_MEMBER,
+            delete_left_member_message,
+        )
+    )
+
+
+    # Telegram 고정 시스템 메시지 자동삭제
+    # 별도 handler group에서 검사하여 기존 입장/퇴장 handler와 충돌 방지
+    app.add_handler(
+        MessageHandler(
+            filters.ALL,
+            delete_pin_system_message,
+            block=False,
+        ),
+        group=1,
+    )
+
+
+    # 구독 완료
+    app.add_handler(
+        CallbackQueryHandler(
+            check_subscription,
+            pattern=r"^check_sub:",
+        )
+    )
+
+
+    # 공지 즉시 테스트
+    # 봇 개인채팅에서 /공지테스트
+    app.add_handler(
+        CommandHandler(
+            "공지테스트",
+            test_daily_notice,
+        )
+    )
+
+
+    # 개인채팅 움직이는 이모지 ID 확인
+    app.add_handler(
+        MessageHandler(
+            filters.ChatType.PRIVATE,
+            get_emoji_id,
+        )
+    )
+
+
+    app.run_polling(
+        allowed_updates=Update.ALL_TYPES
+    )
+
+
+if __name__ == "__main__":
+    print("Seoul_freebot 시작")
+    try:
+        main()
+    except Exception as e:
