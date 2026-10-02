@@ -209,7 +209,7 @@ def build_welcome_message(name):
 
 
 # ==================================================
-# 공지채널 구독 확인
+# 공지사항 채널 구독 확인
 # ==================================================
 
 async def is_subscribed(context, user_id):
@@ -231,7 +231,7 @@ async def is_subscribed(context, user_id):
 
 
 # ==================================================
-# 메인방 회원 확인
+# 서 울 메인방 회원 확인
 # ==================================================
 
 async def is_main_group_member(context, user_id):
@@ -254,7 +254,7 @@ async def is_main_group_member(context, user_id):
 
 
 # ==================================================
-# 미구독자 채팅 잠금
+# 미구독 신규회원 채팅 잠금
 # ==================================================
 
 async def lock_member(context, user_id):
@@ -281,7 +281,6 @@ async def lock_member(context, user_id):
         )
 
         print(f"{user_id} 채팅 잠금 완료")
-
         return True
 
     except Exception as e:
@@ -290,8 +289,7 @@ async def lock_member(context, user_id):
 
 
 # ==================================================
-# 구독 완료자 채팅 잠금 해제
-# 그룹의 기본 권한으로 복구
+# 구독 완료 회원 채팅 잠금 해제
 # ==================================================
 
 async def unlock_member(context, user_id):
@@ -318,7 +316,6 @@ async def unlock_member(context, user_id):
         )
 
         print(f"{user_id} 채팅 잠금 해제 완료")
-
         return True
 
     except Exception as e:
@@ -327,7 +324,7 @@ async def unlock_member(context, user_id):
 
 
 # ==================================================
-# 정상 환영문구 + 메뉴
+# 정상 환영문구 + URL 메뉴
 # ==================================================
 
 async def send_normal_welcome(message, member):
@@ -347,7 +344,7 @@ async def send_normal_welcome(message, member):
 
 
 # ==================================================
-# 미구독자 구독 인증창
+# 미구독 신규회원 인증창
 # ==================================================
 
 async def send_subscription_message(message, member):
@@ -415,6 +412,7 @@ async def welcome(
 
     for member in message.new_chat_members:
 
+        # 봇 제외
         if member.is_bot:
             continue
 
@@ -423,10 +421,9 @@ async def welcome(
             member.id,
         )
 
-        # 이미 공지채널을 구독한 사람
+        # 이미 공지사항 채널 구독 중
         if subscribed:
 
-            # 정상 채팅 가능 상태
             await unlock_member(
                 context,
                 member.id,
@@ -440,13 +437,13 @@ async def welcome(
         # 미구독 신규회원
         else:
 
-            # 먼저 채팅 잠금
+            # 채팅부터 잠금
             await lock_member(
                 context,
                 member.id,
             )
 
-            # 구독 인증창
+            # 구독 인증창 표시
             await send_subscription_message(
                 message,
                 member,
@@ -477,7 +474,7 @@ async def check_subscription(
 
 
     # ==================================================
-    # 남의 구독 완료 버튼 사용 차단
+    # 남의 구독 완료 버튼 클릭 차단
     # ==================================================
 
     if query.from_user.id != target_user_id:
@@ -489,7 +486,7 @@ async def check_subscription(
 
 
     # ==================================================
-    # 메인방 회원 확인
+    # 실제 메인방 회원인지 확인
     # ==================================================
 
     main_member = await is_main_group_member(
@@ -506,7 +503,7 @@ async def check_subscription(
 
 
     # ==================================================
-    # 공지채널 실제 구독 확인
+    # 실제 공지사항 채널 구독 확인
     # ==================================================
 
     subscribed = await is_subscribed(
@@ -524,7 +521,7 @@ async def check_subscription(
 
 
     # ==================================================
-    # 구독 확인 성공 → 채팅 잠금 해제
+    # 구독 성공 → 채팅 잠금 해제
     # ==================================================
 
     unlocked = await unlock_member(
@@ -549,7 +546,10 @@ async def check_subscription(
     chat = query.message.chat
 
 
-    # 기존 인증창 삭제
+    # ==================================================
+    # 기존 구독 인증창 삭제
+    # ==================================================
+
     try:
         await query.message.delete()
 
@@ -575,6 +575,32 @@ async def check_subscription(
         entities=entities,
         reply_markup=InlineKeyboardMarkup(BUTTONS),
     )
+
+
+# ==================================================
+# 회원 퇴장 시스템 메시지 자동 삭제
+#
+# 예:
+# "OO님이 그룹을 나갔습니다"
+# ==================================================
+
+async def delete_left_member_message(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    message = update.effective_message
+
+    if not message:
+        return
+
+    if message.left_chat_member:
+
+        try:
+            await message.delete()
+            print("퇴장 시스템 메시지 삭제 완료")
+
+        except Exception as e:
+            print(f"퇴장 메시지 삭제 오류: {e}")
 
 
 # ==================================================
@@ -632,7 +658,8 @@ def main():
         .build()
     )
 
-    # 신규회원
+
+    # 신규회원 입장
     app.add_handler(
         MessageHandler(
             filters.StatusUpdate.NEW_CHAT_MEMBERS,
@@ -640,7 +667,17 @@ def main():
         )
     )
 
-    # 구독 완료
+
+    # 회원 퇴장 시스템 메시지 자동삭제
+    app.add_handler(
+        MessageHandler(
+            filters.StatusUpdate.LEFT_CHAT_MEMBER,
+            delete_left_member_message,
+        )
+    )
+
+
+    # 구독 완료 버튼
     app.add_handler(
         CallbackQueryHandler(
             check_subscription,
@@ -648,13 +685,15 @@ def main():
         )
     )
 
-    # 개인채팅 이모지 ID
+
+    # 개인채팅 움직이는 이모지 ID 확인
     app.add_handler(
         MessageHandler(
             filters.ChatType.PRIVATE,
             get_emoji_id,
         )
     )
+
 
     app.run_polling(
         allowed_updates=Update.ALL_TYPES
