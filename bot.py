@@ -845,17 +845,8 @@ async def send_daily_notice(context):
 
     text, entities = build_daily_notice()
 
-    keyboard = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "공지사항 확인",
-                    url=NOTICE_URL,
-                    icon_custom_emoji_id="5332312390312668778",
-                )
-            ]
-        ]
-    )
+    # 환영메시지와 동일한 6개 인라인 메뉴 버튼 사용
+    keyboard = InlineKeyboardMarkup(BUTTONS)
 
     sent = await context.bot.send_message(
         chat_id=MAIN_GROUP_ID,
