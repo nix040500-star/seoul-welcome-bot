@@ -38,6 +38,15 @@ NOTICE_URL = "https://t.me/Sexnotice"
 
 
 # ==================================================
+# 미구독자 인증창 저장
+#
+# user_id : message_id
+# ==================================================
+
+PENDING_SUBSCRIPTION_MESSAGES = {}
+
+
+# ==================================================
 # 구독 인증 움직이는 이모지
 # ==================================================
 
@@ -325,7 +334,7 @@ async def unlock_member(context, user_id):
 
 # ==================================================
 # 정상 환영문구 + URL 메뉴
-# 독립 메시지 방식
+# 독립 메시지
 # ==================================================
 
 async def send_normal_welcome(context, chat_id, member):
@@ -347,7 +356,7 @@ async def send_normal_welcome(context, chat_id, member):
 
 # ==================================================
 # 미구독 신규회원 인증창
-# 독립 메시지 방식
+# 독립 메시지 + message_id 저장
 # ==================================================
 
 async def send_subscription_message(context, chat_id, member):
@@ -393,11 +402,19 @@ async def send_subscription_message(context, chat_id, member):
         ]
     )
 
-    await context.bot.send_message(
+    sent_message = await context.bot.send_message(
         chat_id=chat_id,
         text=text,
         entities=entities,
         reply_markup=keyboard,
+    )
+
+    # 이 회원의 구독 인증창 message_id 저장
+    PENDING_SUBSCRIPTION_MESSAGES[member.id] = sent_message.message_id
+
+    print(
+        f"{member.id} 구독 인증창 저장: "
+        f"{sent_message.message_id}"
     )
 
 
@@ -427,7 +444,7 @@ async def welcome(
             member.id,
         )
 
-        # 이미 공지사항 채널 구독 중
+        # 이미 구독한 회원
         if subscribed:
 
             await unlock_member(
@@ -441,16 +458,14 @@ async def welcome(
                 member,
             )
 
-        # 미구독 신규회원
+        # 미구독 회원
         else:
 
-            # 채팅 잠금
             await lock_member(
                 context,
                 member.id,
             )
 
-            # 구독 인증창
             await send_subscription_message(
                 context,
                 chat_id,
@@ -506,7 +521,7 @@ async def check_subscription(
 
 
     # ==================================================
-    # 메인방 회원 확인
+    # 실제 메인방 회원인지 확인
     # ==================================================
 
     main_member = await is_main_group_member(
@@ -577,6 +592,13 @@ async def check_subscription(
         print(f"인증창 삭제 오류: {e}")
 
 
+    # 저장 목록에서도 제거
+    PENDING_SUBSCRIPTION_MESSAGES.pop(
+        target_user_id,
+        None,
+    )
+
+
     # ==================================================
     # 정상 환영문구 + URL 메뉴
     # ==================================================
@@ -598,7 +620,10 @@ async def check_subscription(
 
 
 # ==================================================
-# 회원 퇴장 시스템 메시지 자동 삭제
+# 회원 퇴장 처리
+#
+# 1. 미구독자의 남아있는 구독 인증창 삭제
+# 2. Telegram 기본 퇴장 메시지 삭제
 # ==================================================
 
 async def delete_left_member_message(
@@ -610,14 +635,54 @@ async def delete_left_member_message(
     if not message:
         return
 
-    if message.left_chat_member:
+    member = message.left_chat_member
+
+    if not member:
+        return
+
+    user_id = member.id
+
+
+    # ==================================================
+    # 이 사람이 미구독 상태로 나갔다면
+    # 저장되어 있던 구독 인증창 삭제
+    # ==================================================
+
+    subscription_message_id = (
+        PENDING_SUBSCRIPTION_MESSAGES.pop(
+            user_id,
+            None,
+        )
+    )
+
+    if subscription_message_id is not None:
 
         try:
-            await message.delete()
-            print("퇴장 시스템 메시지 삭제 완료")
+            await context.bot.delete_message(
+                chat_id=message.chat.id,
+                message_id=subscription_message_id,
+            )
+
+            print(
+                f"{user_id} 구독 인증창 자동삭제 완료"
+            )
 
         except Exception as e:
-            print(f"퇴장 메시지 삭제 오류: {e}")
+            print(
+                f"구독 인증창 삭제 오류: {e}"
+            )
+
+
+    # ==================================================
+    # Telegram 기본 퇴장 시스템 메시지 삭제
+    # ==================================================
+
+    try:
+        await message.delete()
+        print("퇴장 시스템 메시지 삭제 완료")
+
+    except Exception as e:
+        print(f"퇴장 메시지 삭제 오류: {e}")
 
 
 # ==================================================
@@ -685,7 +750,8 @@ def main():
     )
 
 
-    # 퇴장 시스템 메시지 자동삭제
+    # 회원 퇴장
+    # 구독 인증창 + Telegram 퇴장문구 자동삭제
     app.add_handler(
         MessageHandler(
             filters.StatusUpdate.LEFT_CHAT_MEMBER,
@@ -703,7 +769,7 @@ def main():
     )
 
 
-    # 개인채팅 이모지 ID 확인
+    # 개인채팅 움직이는 이모지 ID 확인
     app.add_handler(
         MessageHandler(
             filters.ChatType.PRIVATE,
