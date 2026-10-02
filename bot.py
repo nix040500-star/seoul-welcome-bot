@@ -65,8 +65,21 @@ MENU_URLS = {
 
 
 # =========================
+# 메뉴 이름
+# =========================
+
+MENU_NAMES = {
+    "notice": "공지사항",
+    "waiting": "대기조방",
+    "links": "링크모아방",
+    "neto": "네토방",
+    "body": "전국 몸매자랑방",
+    "partner": "제휴문의",
+}
+
+
+# =========================
 # 메뉴 버튼
-# 구독 여부 확인을 위해 callback 방식 사용
 # =========================
 
 BUTTONS = [
@@ -137,7 +150,7 @@ def add_custom_emoji(parts, entities, emoji_id):
 
 
 # =========================
-# 기존 환영문구 만들기
+# 환영문구 만들기
 # =========================
 
 def build_welcome_message(name):
@@ -146,13 +159,11 @@ def build_welcome_message(name):
 
     parts.append(f"{name}님, ")
 
-    # 첫 줄 움직이는 이모지 5개
     for emoji_id in TITLE_EMOJI_IDS:
         add_custom_emoji(parts, entities, emoji_id)
 
     parts.append("에 오신걸 환영합니다.\n\n")
 
-    # 눈팅 및 타업체 홍보
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
 
@@ -163,7 +174,6 @@ def build_welcome_message(name):
 
     parts.append("\n\n")
 
-    # 방 분위기
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
 
@@ -174,7 +184,6 @@ def build_welcome_message(name):
 
     parts.append("\n\n")
 
-    # 몸매
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
 
@@ -185,15 +194,12 @@ def build_welcome_message(name):
 
     parts.append("\n\n\n")
 
-    # 여성 인증
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
     parts.append(" 여성 인증하면 본인 홍보가능\n")
 
-    # 제휴 문의
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
     parts.append(" 제휴 문의 언제든지 환영\n")
 
-    # 이벤트
     add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
     parts.append(" 이벤트 00방 진행중\n\n")
 
@@ -201,7 +207,6 @@ def build_welcome_message(name):
 
     text = "".join(parts)
 
-    # 전체 굵게
     entities.insert(
         0,
         MessageEntity(
@@ -215,7 +220,7 @@ def build_welcome_message(name):
 
 
 # =========================
-# 공지사항 구독 여부 확인
+# 공지사항 구독 확인
 # =========================
 
 async def is_subscribed(context, user_id):
@@ -240,7 +245,7 @@ async def is_subscribed(context, user_id):
 
 
 # =========================
-# 환영문구 + 6개 메뉴
+# 환영문구 + 메뉴
 # =========================
 
 async def send_normal_welcome(message, member):
@@ -256,7 +261,7 @@ async def send_normal_welcome(message, member):
 
 
 # =========================
-# 미구독자 인증 메시지
+# 미구독자 인증창
 # =========================
 
 async def send_subscription_message(message, member):
@@ -306,10 +311,13 @@ async def send_subscription_message(message, member):
 
 
 # =========================
-# 신규 회원 입장
+# 신규회원 입장
 # =========================
 
-async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def welcome(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
     message = update.effective_message
 
     if not message or not message.new_chat_members:
@@ -324,14 +332,12 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
             member.id,
         )
 
-        # 이미 공지사항 구독 중
         if subscribed:
             await send_normal_welcome(
                 message,
                 member,
             )
 
-        # 아직 미구독
         else:
             await send_subscription_message(
                 message,
@@ -340,7 +346,7 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# 구독 완료 ( 입장 완료 )
+# 구독 완료
 # =========================
 
 async def check_subscription(
@@ -356,11 +362,12 @@ async def check_subscription(
         target_user_id = int(
             query.data.split(":")[1]
         )
+
     except (IndexError, ValueError):
         await query.answer()
         return
 
-    # 다른 사람이 남의 입장 완료 버튼 사용 불가
+    # 다른 사람의 구독완료 버튼 사용 금지
     if query.from_user.id != target_user_id:
         await query.answer(
             "본인의 입장 완료 버튼만 사용할 수 있습니다.",
@@ -368,7 +375,6 @@ async def check_subscription(
         )
         return
 
-    # 실제 공지사항 구독 확인
     subscribed = await is_subscribed(
         context,
         target_user_id,
@@ -382,7 +388,6 @@ async def check_subscription(
         )
         return
 
-    # 구독 성공
     await query.answer(
         "구독이 확인되었습니다!"
     )
@@ -390,13 +395,14 @@ async def check_subscription(
     user = query.from_user
     chat = query.message.chat
 
-    # 구독 인증창만 즉시 삭제
+    # 인증창 즉시 삭제
     try:
         await query.message.delete()
+
     except Exception as e:
         print(f"인증 메시지 삭제 오류: {e}")
 
-    # 환영문구 + 6개 메뉴
+    # 환영문구 + 메뉴 생성
     name = user.full_name or user.first_name or "회원"
 
     text, entities = build_welcome_message(name)
@@ -422,13 +428,15 @@ async def menu_click(
     if not query:
         return
 
-    # 버튼을 실제로 누른 사람의 구독 여부 확인
+    # ★ 핵심
+    # 누구의 환영창인지 보지 않고
+    # 버튼을 실제로 누른 사람의 구독 상태만 검사
     subscribed = await is_subscribed(
         context,
         query.from_user.id,
     )
 
-    # 미구독자는 다른 사람의 메뉴도 이용 불가
+    # 미구독자 차단
     if not subscribed:
         await query.answer(
             "공지사항 채널을 먼저 구독해주세요.",
@@ -438,7 +446,9 @@ async def menu_click(
 
     try:
         menu_name = query.data.split(":")[1]
+
         url = MENU_URLS[menu_name]
+        display_name = MENU_NAMES[menu_name]
 
     except (IndexError, KeyError):
         await query.answer(
@@ -447,21 +457,22 @@ async def menu_click(
         )
         return
 
+    # 구독자는 누구의 메뉴든 사용 가능
     await query.answer(
-        "이동 링크를 보내드립니다."
+        f"{display_name} 이동 링크를 보내드립니다."
     )
 
-    # 구독 확인된 사람에게만 링크 전송
     try:
         await context.bot.send_message(
             chat_id=query.from_user.id,
-            text=f"아래 링크를 눌러 이동해주세요.\n\n{url}",
+            text=f"{display_name}\n\n{url}",
             disable_web_page_preview=True,
         )
 
     except Exception:
         await query.answer(
-            "먼저 Seoul_freebot과 개인채팅에서 /start를 눌러주세요.",
+            "Seoul_freebot 개인채팅에서 "
+            "먼저 /start를 눌러주세요.",
             show_alert=True,
         )
 
