@@ -1093,7 +1093,7 @@ def main():
     # 봇 개인채팅에서 /공지테스트
     app.add_handler(
         CommandHandler(
-            "공지테스트",
+            "notice_test",
             test_daily_notice,
         )
     )
