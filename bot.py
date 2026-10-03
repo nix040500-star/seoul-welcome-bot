@@ -216,13 +216,13 @@ def build_welcome_message(name):
 
     parts.append("\n\n\n")
 
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    add_custom_emoji(parts, entities, "5386805659759046018")
     parts.append(" 여성 인증하면 본인 홍보가능\n")
 
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    add_custom_emoji(parts, entities, "5269402556924180806")
     parts.append(" 제휴 문의 언제든지 환영\n")
 
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
+    add_custom_emoji(parts, entities, "5449800250032143374")
     parts.append(" 이벤트 00방 진행중\n\n")
 
     parts.append(
