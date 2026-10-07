@@ -76,6 +76,10 @@ PENDING_GENDER_USERS = {}
 GENDER_EMOJI_IDS = ["5449749354669682195", "5447342287493279609"]
 VALID_GENDER_WORDS = {"남자", "남성", "여자", "여성"}
 
+# 관리자 전용 성별 기록방 ID
+# FadeHost 환경변수에 GENDER_LOG_CHAT_ID=-100... 형태로 추가하세요.
+GENDER_LOG_CHAT_ID = os.environ.get("GENDER_LOG_CHAT_ID")
+
 
 # ==================================================
 # 구독 인증 움직이는 이모지
@@ -417,10 +421,26 @@ async def handle_gender_input(update: Update, context: ContextTypes.DEFAULT_TYPE
     # 성별 확인 직후 다시 채팅 잠금
     await lock_member(context, user.id)
 
-    try:
-        await message.delete()
-    except Exception as e:
-        print(f"성별 입력 메시지 삭제 오류: {e}")
+    # 사용자가 입력한 성별 메시지는 메인방에 그대로 보존
+
+    # 관리자 전용 기록방에도 별도 기록
+    if GENDER_LOG_CHAT_ID:
+        try:
+            now = datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")
+            username = f"@{user.username}" if user.username else "없음"
+            await context.bot.send_message(
+                chat_id=int(GENDER_LOG_CHAT_ID),
+                text=(
+                    "👤 성별 선택 기록\n"
+                    f"이름: {user.full_name or user.first_name or '회원'}\n"
+                    f"성별: {gender}\n"
+                    f"아이디: {username}\n"
+                    f"사용자 ID: {user.id}\n"
+                    f"시간: {now} (KST)"
+                ),
+            )
+        except Exception as e:
+            print(f"성별 기록방 전송 오류: {e}")
 
     gender_message_id = PENDING_GENDER_USERS.pop(user.id, None)
     if gender_message_id is not None:
@@ -979,6 +999,15 @@ async def delete_pin_system_message(
     message = update.effective_message
 
     if not message:
+        return
+
+    # 메인방에서만 작동. 성별 기록방/다른 방 메시지는 절대 건드리지 않음.
+    if message.chat.id != MAIN_GROUP_ID:
+        return
+
+    # 일반 채팅 및 실제 고정 공지는 삭제하지 않음.
+    # Telegram이 별도로 생성한 "메시지를 고정했습니다" 서비스 메시지만 삭제.
+    if not message.pinned_message:
         return
 
     try:
