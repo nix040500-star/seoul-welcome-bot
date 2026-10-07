@@ -72,444 +72,92 @@ NOTICE_SMILE_EMOJI_ID = "5217980545576739208"
 PENDING_SUBSCRIPTION_MESSAGES = {}
 
 # ==================================================
-# 신규회원 성별 선택 상태
-#
-# user_id : 성별 선택창 message_id
+# 신규회원 성별 직접 입력
+# 신규회원 본인이 남성/남자/여성/여자 중 하나를 직접 채팅
 # ==================================================
 
-PENDING_GENDER_MESSAGES = {}
-SELECTED_GENDERS = {}
-
-
-# ==================================================
-# 구독 인증 움직이는 이모지
-# ==================================================
-
-SUB_WELCOME_EMOJI_ID = "5413825479406789631"
-SUB_BUTTON_EMOJI_ID = "5429633836684157942"
-SUB_DONE_EMOJI_ID = "5413617405421167103"
-
-
-# ==================================================
-# 환영문구 움직이는 이모지
-# ==================================================
-
-TITLE_EMOJI_IDS = [
-    "5434018732005412781",
-    "5386800802151025866",
-    "5431554494519329784",
-    "5436174182817744875",
-    "5431726486484698393",
-]
-
-MAIN_EMOJI_ID = "5267239001508554968"
-
-
-# ==================================================
-# 6개 메뉴 - URL 직접 이동
-# ==================================================
-
-BUTTONS = [
-    [
-        InlineKeyboardButton(
-            "공지사항",
-            url="https://t.me/Sexnotice",
-            icon_custom_emoji_id="5332312390312668778",
-        ),
-        InlineKeyboardButton(
-            "대기조방",
-            url="https://t.me/+FnSLuMpzKCc0MTM1",
-            icon_custom_emoji_id="5332381569350905644",
-        ),
-    ],
-    [
-        InlineKeyboardButton(
-            "링크모아방",
-            url="https://t.me/SexLinker2",
-            icon_custom_emoji_id="5332822842880832998",
-        ),
-        InlineKeyboardButton(
-            "네토방",
-            url="https://t.me/GoodSexer2",
-            icon_custom_emoji_id="5332443897916306318",
-        ),
-    ],
-    [
-        InlineKeyboardButton(
-            "전국 몸매자랑방",
-            url="https://t.me/BodyGood2",
-            icon_custom_emoji_id="5330458252930986764",
-        ),
-    ],
-    [
-        InlineKeyboardButton(
-            "제휴문의",
-            url="https://t.me/Kingsexer",
-            icon_custom_emoji_id="5332817676035176022",
-        ),
-    ],
-]
-
-
-# ==================================================
-# UTF-16
-# ==================================================
-
-def utf16_len(text):
-    return len(text.encode("utf-16-le")) // 2
-
-
-def add_custom_emoji(parts, entities, emoji_id):
-    current_text = "".join(parts)
-    offset = utf16_len(current_text)
-
-    placeholder = "❤"
-    parts.append(placeholder)
-
-    entities.append(
-        MessageEntity(
-            type=MessageEntity.CUSTOM_EMOJI,
-            offset=offset,
-            length=utf16_len(placeholder),
-            custom_emoji_id=emoji_id,
-        )
-    )
-
-
-# ==================================================
-# 환영문구
-# ==================================================
-
-def build_welcome_message(name):
-    parts = []
-    entities = []
-
-    parts.append(f"{name}님, ")
-
-    for emoji_id in TITLE_EMOJI_IDS:
-        add_custom_emoji(
-            parts,
-            entities,
-            emoji_id,
-        )
-
-    parts.append("에 오신걸 환영합니다.\n\n")
-
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-
-    parts.append("눈팅 및 타업체 홍보 추방")
-
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-
-    parts.append("\n\n")
-
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-
-    parts.append("방 분위기 흐리는 행동 추방")
-
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-
-    parts.append("\n\n")
-
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-
-    parts.append("몸매 좋은사람은 전국 몸매")
-
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-    add_custom_emoji(parts, entities, MAIN_EMOJI_ID)
-
-    parts.append("\n\n\n")
-
-    add_custom_emoji(parts, entities, "5386805659759046018")
-    parts.append(" 여성 인증하면 본인 홍보가능\n")
-
-    add_custom_emoji(parts, entities, "5269402556924180806")
-    parts.append(" 제휴 문의 언제든지 환영\n")
-
-    add_custom_emoji(parts, entities, "5449800250032143374")
-    parts.append(" 이벤트 00방 진행중\n\n")
-
-    parts.append(
-        "원하시는 메뉴를 아래에서 선택해주세요."
-    )
-
-    text = "".join(parts)
-
-    entities.insert(
-        0,
-        MessageEntity(
-            type=MessageEntity.BOLD,
-            offset=0,
-            length=utf16_len(text),
-        )
-    )
-
-    return text, entities
-
-
-# ==================================================
-# 공지사항 채널 구독 확인
-# ==================================================
-
-async def is_subscribed(context, user_id):
-    try:
-        member = await context.bot.get_chat_member(
-            chat_id=NOTICE_CHANNEL,
-            user_id=user_id,
-        )
-
-        return member.status in (
-            ChatMemberStatus.MEMBER,
-            ChatMemberStatus.ADMINISTRATOR,
-            ChatMemberStatus.OWNER,
-        )
-
-    except Exception as e:
-        print(f"공지채널 확인 오류: {e}")
-        return False
-
-
-# ==================================================
-# 서 울 메인방 회원 확인
-# ==================================================
-
-async def is_main_group_member(context, user_id):
-    try:
-        member = await context.bot.get_chat_member(
-            chat_id=MAIN_GROUP_ID,
-            user_id=user_id,
-        )
-
-        return member.status in (
-            ChatMemberStatus.MEMBER,
-            ChatMemberStatus.ADMINISTRATOR,
-            ChatMemberStatus.OWNER,
-            ChatMemberStatus.RESTRICTED,
-        )
-
-    except Exception as e:
-        print(f"메인방 회원 확인 오류: {e}")
-        return False
-
-
-# ==================================================
-# 미구독 신규회원 채팅 잠금
-# ==================================================
-
-async def lock_member(context, user_id):
-    try:
-        await context.bot.restrict_chat_member(
-            chat_id=MAIN_GROUP_ID,
-            user_id=user_id,
-            permissions=ChatPermissions(
-                can_send_messages=False,
-                can_send_audios=False,
-                can_send_documents=False,
-                can_send_photos=False,
-                can_send_videos=False,
-                can_send_video_notes=False,
-                can_send_voice_notes=False,
-                can_send_polls=False,
-                can_send_other_messages=False,
-                can_add_web_page_previews=False,
-                can_change_info=False,
-                can_invite_users=False,
-                can_pin_messages=False,
-                can_manage_topics=False,
-            ),
-        )
-
-        print(f"{user_id} 채팅 잠금 완료")
-        return True
-
-    except Exception as e:
-        print(f"채팅 잠금 오류: {e}")
-        return False
-
-
-# ==================================================
-# 구독 완료 회원 채팅 잠금 해제
-# ==================================================
-
-async def unlock_member(context, user_id):
-    try:
-        await context.bot.restrict_chat_member(
-            chat_id=MAIN_GROUP_ID,
-            user_id=user_id,
-            permissions=ChatPermissions(
-                can_send_messages=True,
-                can_send_audios=True,
-                can_send_documents=True,
-                can_send_photos=True,
-                can_send_videos=True,
-                can_send_video_notes=True,
-                can_send_voice_notes=True,
-                can_send_polls=True,
-                can_send_other_messages=True,
-                can_add_web_page_previews=True,
-                can_change_info=False,
-                can_invite_users=True,
-                can_pin_messages=False,
-                can_manage_topics=False,
-            ),
-        )
-
-        print(f"{user_id} 채팅 잠금 해제 완료")
-        return True
-
-    except Exception as e:
-        print(f"채팅 잠금 해제 오류: {e}")
-        return False
-
-
-# ==================================================
-# 정상 환영문구 + URL 메뉴
-# 독립 메시지
-# ==================================================
-
-async def send_normal_welcome(context, chat_id, member):
+async def start_gender_input(context, chat_id, member):
     name = (
         member.full_name
         or member.first_name
         or "회원"
     )
 
-    text, entities = build_welcome_message(name)
+    # 성별을 직접 입력할 수 있도록 잠시 채팅 허용
+    await unlock_member(
+        context,
+        member.id,
+    )
+
+    WAITING_GENDER_INPUT.add(member.id)
 
     await context.bot.send_message(
         chat_id=chat_id,
-        text=text,
-        entities=entities,
-        reply_markup=InlineKeyboardMarkup(BUTTONS),
+        text=(
+            f"{name} 님, 본인의 성별을 직접 입력해 주세요.\n"
+            "남성 / 남자 / 여성 / 여자"
+        ),
     )
 
 
-# ==================================================
-# 신규회원 성별 선택
-# 성별 선택 후 기존 구독 인증창으로 이동
-# ==================================================
-
-async def send_gender_message(context, chat_id, member):
-    name = (
-        member.full_name
-        or member.first_name
-        or "회원"
-    )
-
-    keyboard = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "남성",
-                    callback_data=f"gender:male:{member.id}",
-                    icon_custom_emoji_id="5449749354669682195",
-                ),
-                InlineKeyboardButton(
-                    "여성",
-                    callback_data=f"gender:female:{member.id}",
-                    icon_custom_emoji_id="5447342287493279609",
-                ),
-            ],
-        ]
-    )
-
-    sent_message = await context.bot.send_message(
-        chat_id=chat_id,
-        text="본인의 성별을 선택해 주세요.",
-        reply_markup=keyboard,
-    )
-
-    PENDING_GENDER_MESSAGES[member.id] = sent_message.message_id
-    print(
-        f"{member.id} 성별 선택창 저장: "
-        f"{sent_message.message_id}"
-    )
-
-
-async def select_gender(
+async def handle_gender_input(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-    query = update.callback_query
+    message = update.effective_message
+    user = update.effective_user
 
-    if not query:
+    if not message or not user:
         return
 
-    try:
-        _, gender_code, target_user_id_text = query.data.split(":")
-        target_user_id = int(target_user_id_text)
-    except (ValueError, AttributeError):
-        await query.answer()
+    if message.chat.id != MAIN_GROUP_ID:
         return
 
-    # 본인의 성별 버튼만 클릭 가능
-    if query.from_user.id != target_user_id:
-        await query.answer(
-            "본인의 성별 선택 버튼만 사용할 수 있습니다.",
-            show_alert=True,
-        )
+    if user.id not in WAITING_GENDER_INPUT:
         return
 
-    # 실제 메인방 회원인지 확인
-    main_member = await is_main_group_member(
-        context,
-        target_user_id,
-    )
-
-    if not main_member:
-        await query.answer(
-            "서 울 메인방 회원이 아닙니다.",
-            show_alert=True,
-        )
+    # 텍스트가 아닌 메시지는 삭제
+    if not message.text:
+        try:
+            await message.delete()
+        except Exception as e:
+            print(f"성별 외 메시지 삭제 오류: {e}")
         return
 
-    gender = {
-        "male": "남성",
-        "female": "여성",
-    }.get(gender_code)
+    value = message.text.strip()
 
+    gender_map = {
+        "남성": "남성",
+        "남자": "남성",
+        "여성": "여성",
+        "여자": "여성",
+    }
+
+    gender = gender_map.get(value)
+
+    # 성별 단어 외에는 즉시 삭제
     if not gender:
-        await query.answer()
+        try:
+            await message.delete()
+        except Exception as e:
+            print(f"성별 외 메시지 삭제 오류: {e}")
         return
 
-    SELECTED_GENDERS[target_user_id] = gender
+    SELECTED_GENDERS[user.id] = gender
+    WAITING_GENDER_INPUT.discard(user.id)
 
-    user = query.from_user
-    chat = query.message.chat
-    name = (
-        user.full_name
-        or user.first_name
-        or "회원"
+    # 사용자가 직접 입력한 성별 메시지는 삭제하지 않음
+
+    # 구독 전까지 다시 채팅 잠금
+    await lock_member(
+        context,
+        user.id,
     )
 
-    await query.answer(f"{gender}으로 선택되었습니다.")
-
-    # 성별 선택창 삭제
-    try:
-        await query.message.delete()
-    except Exception as e:
-        print(f"성별 선택창 삭제 오류: {e}")
-
-    PENDING_GENDER_MESSAGES.pop(
-        target_user_id,
-        None,
-    )
-
-    # 그룹에 선택 결과 표시
-    await context.bot.send_message(
-        chat_id=chat.id,
-        text=f"{name}  |  {gender}",
-    )
-
-    # 성별 선택이 끝나면 기존 구독/입장완료 단계로 이동
+    # 기존 구독 / 입장완료 단계로 이동
     await send_subscription_message(
         context,
-        chat.id,
+        message.chat.id,
         user,
     )
 
@@ -626,7 +274,7 @@ async def welcome(
                 member.id,
             )
 
-            await send_gender_message(
+            await start_gender_input(
                 context,
                 chat_id,
                 member,
@@ -803,29 +451,12 @@ async def delete_left_member_message(
     user_id = member.id
 
 
-    # ==================================================
-    # 남아있는 성별 선택창 삭제
-    # ==================================================
-
-    gender_message_id = PENDING_GENDER_MESSAGES.pop(
-        user_id,
-        None,
-    )
-
+    # 성별 입력 대기/선택 상태 정리
+    WAITING_GENDER_INPUT.discard(user_id)
     SELECTED_GENDERS.pop(
         user_id,
         None,
     )
-
-    if gender_message_id is not None:
-        try:
-            await context.bot.delete_message(
-                chat_id=message.chat.id,
-                message_id=gender_message_id,
-            )
-            print(f"{user_id} 성별 선택창 자동삭제 완료")
-        except Exception as e:
-            print(f"성별 선택창 삭제 오류: {e}")
 
 
     # ==================================================
@@ -1229,12 +860,13 @@ def main():
     )
 
 
-    # 성별 선택
+    # 성별 직접 입력
     app.add_handler(
-        CallbackQueryHandler(
-            select_gender,
-            pattern=r"^gender:",
-        )
+        MessageHandler(
+            filters.Chat(MAIN_GROUP_ID) & ~filters.StatusUpdate.ALL,
+            handle_gender_input,
+        ),
+        group=2,
     )
 
 
