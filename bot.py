@@ -71,9 +71,14 @@ NOTICE_SMILE_EMOJI_ID = "5217980545576739208"
 
 PENDING_SUBSCRIPTION_MESSAGES = {}
 
-# 신규회원 성별 확인 / 채팅가능 안내 메시지 저장
+# ==================================================
+# 신규회원 성별 선택 상태
+#
+# user_id : 성별 선택창 message_id
+# ==================================================
+
 PENDING_GENDER_MESSAGES = {}
-CHAT_ENABLED_MESSAGES = {}
+SELECTED_GENDERS = {}
 
 
 # ==================================================
@@ -385,84 +390,192 @@ async def send_normal_welcome(context, chat_id, member):
 
 
 # ==================================================
+# 신규회원 성별 선택
+# 성별 선택 후 기존 구독 인증창으로 이동
+# ==================================================
+
+async def send_gender_message(context, chat_id, member):
+    name = (
+        member.full_name
+        or member.first_name
+        or "회원"
+    )
+
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "남성",
+                    callback_data=f"gender:male:{member.id}",
+                    icon_custom_emoji_id="5449749354669682195",
+                ),
+                InlineKeyboardButton(
+                    "여성",
+                    callback_data=f"gender:female:{member.id}",
+                    icon_custom_emoji_id="5447342287493279609",
+                ),
+            ],
+        ]
+    )
+
+    sent_message = await context.bot.send_message(
+        chat_id=chat_id,
+        text="본인의 성별을 선택해 주세요.",
+        reply_markup=keyboard,
+    )
+
+    PENDING_GENDER_MESSAGES[member.id] = sent_message.message_id
+    print(
+        f"{member.id} 성별 선택창 저장: "
+        f"{sent_message.message_id}"
+    )
+
+
+async def select_gender(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    query = update.callback_query
+
+    if not query:
+        return
+
+    try:
+        _, gender_code, target_user_id_text = query.data.split(":")
+        target_user_id = int(target_user_id_text)
+    except (ValueError, AttributeError):
+        await query.answer()
+        return
+
+    # 본인의 성별 버튼만 클릭 가능
+    if query.from_user.id != target_user_id:
+        await query.answer(
+            "본인의 성별 선택 버튼만 사용할 수 있습니다.",
+            show_alert=True,
+        )
+        return
+
+    # 실제 메인방 회원인지 확인
+    main_member = await is_main_group_member(
+        context,
+        target_user_id,
+    )
+
+    if not main_member:
+        await query.answer(
+            "서 울 메인방 회원이 아닙니다.",
+            show_alert=True,
+        )
+        return
+
+    gender = {
+        "male": "남성",
+        "female": "여성",
+    }.get(gender_code)
+
+    if not gender:
+        await query.answer()
+        return
+
+    SELECTED_GENDERS[target_user_id] = gender
+
+    user = query.from_user
+    chat = query.message.chat
+    name = (
+        user.full_name
+        or user.first_name
+        or "회원"
+    )
+
+    await query.answer(f"{gender}으로 선택되었습니다.")
+
+    # 성별 선택창 삭제
+    try:
+        await query.message.delete()
+    except Exception as e:
+        print(f"성별 선택창 삭제 오류: {e}")
+
+    PENDING_GENDER_MESSAGES.pop(
+        target_user_id,
+        None,
+    )
+
+    # 그룹에 선택 결과 표시
+    await context.bot.send_message(
+        chat_id=chat.id,
+        text=f"{name} 님은 {gender}입니다.",
+    )
+
+    # 성별 선택이 끝나면 기존 구독/입장완료 단계로 이동
+    await send_subscription_message(
+        context,
+        chat.id,
+        user,
+    )
+
+
+# ==================================================
 # 미구독 신규회원 인증창
 # 독립 메시지 + message_id 저장
 # ==================================================
 
 async def send_subscription_message(context, chat_id, member):
-    name = (member.full_name or member.first_name or "회원")
-
-    # 1단계: 먼저 성별을 물어봄
-    keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("남성", callback_data=f"gender:male:{member.id}"),
-            InlineKeyboardButton("여성", callback_data=f"gender:female:{member.id}"),
-        ]
-    ])
-
-    sent_message = await context.bot.send_message(
-        chat_id=chat_id,
-        text=f"{name} 님, 성별을 말씀해주세요.",
-        reply_markup=keyboard,
+    name = (
+        member.full_name
+        or member.first_name
+        or "회원"
     )
-    PENDING_GENDER_MESSAGES[member.id] = sent_message.message_id
 
-
-async def send_subscription_buttons(context, chat_id, member):
-    name = (member.full_name or member.first_name or "회원")
     parts = []
     entities = []
-    add_custom_emoji(parts, entities, SUB_WELCOME_EMOJI_ID)
+
+    add_custom_emoji(
+        parts,
+        entities,
+        SUB_WELCOME_EMOJI_ID,
+    )
+
     parts.append(
         f" {name} 님 반갑습니다!!\n\n"
         "방 사용에 앞서 먼저 아래 채널 구독을 해주세요\n"
         '구독한 후 "입장 완료" 를 누르면 채팅이 활성화됩니다.'
     )
+
     text = "".join(parts)
 
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(
-            "구독 ( 들어가기 )", url=NOTICE_URL,
-            icon_custom_emoji_id=SUB_BUTTON_EMOJI_ID,
-        )],
-        [InlineKeyboardButton(
-            "메인방으로 돌아가기", url="https://t.me/Seoul_sexy",
-        )],
-        [InlineKeyboardButton(
-            "구독 완료 ( 입장 완료 )",
-            callback_data=f"check_sub:{member.id}",
-            icon_custom_emoji_id=SUB_DONE_EMOJI_ID,
-        )],
-    ])
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "구독 ( 들어가기 )",
+                    url=NOTICE_URL,
+                    icon_custom_emoji_id=SUB_BUTTON_EMOJI_ID,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "구독 완료 ( 입장 완료 )",
+                    callback_data=f"check_sub:{member.id}",
+                    icon_custom_emoji_id=SUB_DONE_EMOJI_ID,
+                )
+            ],
+        ]
+    )
 
     sent_message = await context.bot.send_message(
-        chat_id=chat_id, text=text, entities=entities, reply_markup=keyboard
+        chat_id=chat_id,
+        text=text,
+        entities=entities,
+        reply_markup=keyboard,
     )
+
+    # 이 회원의 구독 인증창 message_id 저장
     PENDING_SUBSCRIPTION_MESSAGES[member.id] = sent_message.message_id
 
-
-async def select_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    if not query:
-        return
-    try:
-        _, gender, target = query.data.split(":")
-        target_user_id = int(target)
-    except (ValueError, IndexError):
-        await query.answer()
-        return
-
-    if query.from_user.id != target_user_id:
-        await query.answer("본인의 성별 버튼만 사용할 수 있습니다.", show_alert=True)
-        return
-
-    await query.answer("성별 확인 완료")
-    try:
-        await query.message.delete()
-    except Exception as e:
-        print(f"성별창 삭제 오류: {e}")
-    PENDING_GENDER_MESSAGES.pop(target_user_id, None)
-    await send_subscription_buttons(context, query.message.chat.id, query.from_user)
+    print(
+        f"{member.id} 구독 인증창 저장: "
+        f"{sent_message.message_id}"
+    )
 
 
 # ==================================================
@@ -513,7 +626,7 @@ async def welcome(
                 member.id,
             )
 
-            await send_subscription_message(
+            await send_gender_message(
                 context,
                 chat_id,
                 member,
@@ -627,13 +740,6 @@ async def check_subscription(
     user = query.from_user
     chat = query.message.chat
 
-    name = user.full_name or user.first_name or "회원"
-    enabled_message = await context.bot.send_message(
-        chat_id=chat.id,
-        text=f"{name}님 이제 채팅 가능합니다.",
-    )
-    CHAT_ENABLED_MESSAGES[target_user_id] = enabled_message.message_id
-
 
     # ==================================================
     # 구독 인증창 삭제
@@ -673,23 +779,6 @@ async def check_subscription(
     )
 
 
-async def delete_chat_enabled_on_first_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message = update.effective_message
-    user = update.effective_user
-    if not message or not user or message.chat.id != MAIN_GROUP_ID:
-        return
-    notice_message_id = CHAT_ENABLED_MESSAGES.pop(user.id, None)
-    if notice_message_id is None:
-        return
-    try:
-        await context.bot.delete_message(
-            chat_id=MAIN_GROUP_ID, message_id=notice_message_id
-        )
-        print(f"{user.id} 첫 채팅 확인 → 채팅가능 안내 삭제 완료")
-    except Exception as e:
-        print(f"채팅가능 안내 삭제 오류: {e}")
-
-
 # ==================================================
 # 회원 퇴장 처리
 #
@@ -712,8 +801,31 @@ async def delete_left_member_message(
         return
 
     user_id = member.id
-    PENDING_GENDER_MESSAGES.pop(user_id, None)
-    CHAT_ENABLED_MESSAGES.pop(user_id, None)
+
+
+    # ==================================================
+    # 남아있는 성별 선택창 삭제
+    # ==================================================
+
+    gender_message_id = PENDING_GENDER_MESSAGES.pop(
+        user_id,
+        None,
+    )
+
+    SELECTED_GENDERS.pop(
+        user_id,
+        None,
+    )
+
+    if gender_message_id is not None:
+        try:
+            await context.bot.delete_message(
+                chat_id=message.chat.id,
+                message_id=gender_message_id,
+            )
+            print(f"{user_id} 성별 선택창 자동삭제 완료")
+        except Exception as e:
+            print(f"성별 선택창 삭제 오류: {e}")
 
 
     # ==================================================
@@ -1117,14 +1229,6 @@ def main():
     )
 
 
-    # 구독 완료
-    app.add_handler(
-        CallbackQueryHandler(
-            check_subscription,
-            pattern=r"^check_sub:",
-        )
-    )
-
     # 성별 선택
     app.add_handler(
         CallbackQueryHandler(
@@ -1133,14 +1237,13 @@ def main():
         )
     )
 
-    # 구독완료 후 해당 회원의 첫 채팅 시 "채팅 가능합니다" 안내만 삭제
+
+    # 구독 완료
     app.add_handler(
-        MessageHandler(
-            filters.Chat(MAIN_GROUP_ID) & ~filters.StatusUpdate.ALL,
-            delete_chat_enabled_on_first_message,
-            block=False,
-        ),
-        group=2,
+        CallbackQueryHandler(
+            check_subscription,
+            pattern=r"^check_sub:",
+        )
     )
 
 
