@@ -503,7 +503,7 @@ async def select_gender(
     # 그룹에 선택 결과 표시
     await context.bot.send_message(
         chat_id=chat.id,
-        text=f"{name} 님은 {gender}입니다.",
+        text=f"{name}  |  {gender}",
     )
 
     # 성별 선택이 끝나면 기존 구독/입장완료 단계로 이동
