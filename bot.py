@@ -1120,6 +1120,22 @@ async def get_emoji_id(
 
 
 # ==================================================
+# 현재 채팅방 ID 확인
+# 그룹에서 /id 입력 시 해당 방 ID 출력
+# ==================================================
+
+async def show_chat_id(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    message = update.effective_message
+    if not message:
+        return
+
+    await message.reply_text(f"이 방의 채팅 ID: {message.chat.id}")
+
+
+# ==================================================
 # 실행
 # ==================================================
 
@@ -1187,6 +1203,16 @@ def main():
         CommandHandler(
             "notice_test",
             test_daily_notice,
+        )
+    )
+
+
+    # 현재 채팅방 ID 확인
+    # 그룹에서 /id
+    app.add_handler(
+        CommandHandler(
+            "id",
+            show_chat_id,
         )
     )
 
