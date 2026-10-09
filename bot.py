@@ -129,7 +129,7 @@ BUTTONS = [
             icon_custom_emoji_id="5332822842880832998",
         ),
         InlineKeyboardButton(
-            "네토모여",
+            "HOT19 공유",
             url="https://t.me/+E7pHMLcxagc5ZWVl",
             icon_custom_emoji_id="5332443897916306318",
         ),
