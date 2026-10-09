@@ -129,15 +129,15 @@ BUTTONS = [
             icon_custom_emoji_id="5332822842880832998",
         ),
         InlineKeyboardButton(
-            "네토방",
-            url="https://t.me/GoodSexer2",
+            "네토모여",
+            url="https://t.me/+E7pHMLcxagc5ZWVl",
             icon_custom_emoji_id="5332443897916306318",
         ),
     ],
     [
         InlineKeyboardButton(
             "전국 몸매자랑방",
-            url="https://t.me/BodyGood2",
+            url="https://t.me/+v6BVxUfOP_VhODE9",
             icon_custom_emoji_id="5330458252930986764",
         ),
     ],
