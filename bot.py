@@ -44,7 +44,7 @@ TOKEN = os.environ["BOT_TOKEN"]
 import json
 from pathlib import Path
 SETTINGS_FILE = Path(os.environ.get("SEOUL_SETTINGS_FILE", "seoul_settings.json"))
-DEFAULT_SETTINGS = {"subscription": False, "welcome": False}
+DEFAULT_SETTINGS = {"subscription": True, "welcome": True}
 
 def load_settings():
     try:
@@ -1847,7 +1847,6 @@ def main():
     )
 
     app.add_handler(CommandHandler("settings", show_settings))
-    app.add_handler(CommandHandler("설정", show_settings))
     app.add_handler(CallbackQueryHandler(toggle_settings, pattern=r"^setting:(subscription|welcome)$"))
 
     # 신규회원
