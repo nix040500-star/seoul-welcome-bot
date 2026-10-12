@@ -44,7 +44,7 @@ TOKEN = os.environ["BOT_TOKEN"]
 import json
 from pathlib import Path
 SETTINGS_FILE = Path(os.environ.get("SEOUL_SETTINGS_FILE", "seoul_settings.json"))
-DEFAULT_SETTINGS = {"subscription": False, "welcome": False}
+DEFAULT_SETTINGS = {"subscription": True, "welcome": True}
 
 def load_settings():
     try:
@@ -428,7 +428,7 @@ def build_welcome_message(name):
 
             type=MessageEntity.BOLD,
 
-            onset=0,
+            offset=0,
 
             length=utf16_len(text),
 
