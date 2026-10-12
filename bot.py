@@ -221,7 +221,7 @@ MAIN_EMOJI_ID = "5267239001508554968"
 
 
 BUTTONS = [
-    [InlineKeyboardButton("공지사항 ( 필독 불이익 본인책임 )", url="https://t.me/Sexnotice", icon_custom_emoji_id="5332312390312668778")],
+    [InlineKeyboardButton("공지사항 ( 미숙지시 패널티 )", url="https://t.me/Sexnotice", icon_custom_emoji_id="5332312390312668778")],
     [
         InlineKeyboardButton("링크모아", url="https://t.me/SexLinker2", icon_custom_emoji_id="5332381569350905644"),
         InlineKeyboardButton("대기조 공지채널", url="https://t.me/+J24_W1hQD6o2ZTA1", icon_custom_emoji_id="5332822842880832998"),
