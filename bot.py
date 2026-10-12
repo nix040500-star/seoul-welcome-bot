@@ -2452,7 +2452,9 @@ def main():
 
             get_emoji_id,
 
-        )
+        ),
+
+        group=1,
 
     )
 
