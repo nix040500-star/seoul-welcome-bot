@@ -40,10 +40,10 @@ from telegram.ext import (
 
 TOKEN = os.environ["BOT_TOKEN"]
 
-# 입장 모드: OFF (파일 교체로만 전환)
+# 입장 모드: ON (파일 교체로만 전환)
 import json
 from pathlib import Path
-SUBSCRIPTION_MODE = False
+SUBSCRIPTION_MODE = True
 SETTINGS = {"subscription": SUBSCRIPTION_MODE, "welcome": SUBSCRIPTION_MODE}
 # OFF 상태에 들어온 회원은 실제 채널 구독 여부와 무관하게 인증 면제
 # ON/OFF 양쪽 파일이 같은 영구 저장 경로를 사용해야 기록이 유지됩니다.
