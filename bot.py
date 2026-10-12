@@ -1847,7 +1847,6 @@ def main():
     )
 
     app.add_handler(CommandHandler("settings", show_settings))
-    app.add_handler(CommandHandler("설정", show_settings))
     app.add_handler(CallbackQueryHandler(toggle_settings, pattern=r"^setting:(subscription|welcome)$"))
 
     # 신규회원
