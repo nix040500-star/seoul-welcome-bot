@@ -40,67 +40,42 @@ from telegram.ext import (
 
 TOKEN = os.environ["BOT_TOKEN"]
 
-# 관리자 전용 ON/OFF 설정 (재시작해도 유지)
+# 입장 모드: OFF (파일 교체로만 전환)
 import json
 from pathlib import Path
-SETTINGS_FILE = Path(os.environ.get("SEOUL_SETTINGS_FILE", "seoul_settings.json"))
-DEFAULT_SETTINGS = {"subscription": True, "welcome": True}
-
-def load_settings():
+SUBSCRIPTION_MODE = False
+SETTINGS = {"subscription": SUBSCRIPTION_MODE, "welcome": SUBSCRIPTION_MODE}
+# OFF 상태에 들어온 회원은 실제 채널 구독 여부와 무관하게 인증 면제
+# ON/OFF 양쪽 파일이 같은 영구 저장 경로를 사용해야 기록이 유지됩니다.
+EXEMPT_FILE = Path(os.environ.get("SEOUL_EXEMPT_FILE", "/data/seoul_exempt_members.json"))
+def load_exempt_members():
+    if not EXEMPT_FILE.exists():
+        return set()
     try:
-        saved = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
-        return {key: bool(saved.get(key, default)) for key, default in DEFAULT_SETTINGS.items()}
-    except (OSError, ValueError, TypeError):
-        return DEFAULT_SETTINGS.copy()
+        data = json.loads(EXEMPT_FILE.read_text(encoding="utf-8"))
+        if not isinstance(data, list):
+            raise ValueError("면제 명단은 JSON 배열이어야 합니다")
+        return {int(uid) for uid in data}
+    except (OSError, ValueError, TypeError) as exc:
+        # 기록이 깨진 경우 빈 명단으로 덮어쓰면 기존 회원 기록이 사라집니다.
+        raise RuntimeError(f"회원 기록을 읽지 못했습니다: {EXEMPT_FILE}: {exc}") from exc
 
-SETTINGS = load_settings()
+EXEMPT_MEMBERS = load_exempt_members()
 
-def save_settings():
-    SETTINGS_FILE.write_text(json.dumps(SETTINGS, ensure_ascii=False), encoding="utf-8")
-
-def settings_keyboard():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"구독 / 구독완료: {'ON' if SETTINGS['subscription'] else 'OFF'}", callback_data="setting:subscription")],
-        [InlineKeyboardButton(f"환영메시지 / 메뉴: {'ON' if SETTINGS['welcome'] else 'OFF'}", callback_data="setting:welcome")],
-    ])
-
-async def is_admin(context, user_id):
+def register_exempt_member(user_id):
+    if user_id in EXEMPT_MEMBERS:
+        return True
     try:
-        member = await context.bot.get_chat_member(MAIN_GROUP_ID, user_id)
-        return member.status in (ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER)
-    except Exception as e:
-        print(f"관리자 확인 오류: {e}")
+        EXEMPT_FILE.parent.mkdir(parents=True, exist_ok=True)
+        new_members = EXEMPT_MEMBERS | {user_id}
+        temp_file = EXEMPT_FILE.with_name(EXEMPT_FILE.name + ".tmp")
+        temp_file.write_text(json.dumps(sorted(new_members)), encoding="utf-8")
+        os.replace(temp_file, EXEMPT_FILE)
+        EXEMPT_MEMBERS.add(user_id)
+        return True
+    except OSError as exc:
+        print(f"[오류] 회원 인증 면제 기록 저장 실패: {exc}", flush=True)
         return False
-
-async def show_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != "private":
-        return
-    if not await is_admin(context, update.effective_user.id):
-        await update.effective_message.reply_text("서울 메인방 관리자만 사용할 수 있습니다.")
-        return
-    await update.effective_message.reply_text("서울 봇 기능 설정 (버튼을 눌러 변경)", reply_markup=settings_keyboard())
-
-async def toggle_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    if not query:
-        return
-    if query.message.chat.type != "private" or not await is_admin(context, query.from_user.id):
-        await query.answer("관리자만 변경할 수 있습니다.", show_alert=True)
-        return
-    key = query.data.partition(":")[2]
-    if key not in DEFAULT_SETTINGS:
-        await query.answer("알 수 없는 설정입니다.")
-        return
-    SETTINGS[key] = not SETTINGS[key]
-    try:
-        save_settings()
-    except OSError as e:
-        SETTINGS[key] = not SETTINGS[key]
-        await query.answer(f"저장 실패: {e}", show_alert=True)
-        return
-    await query.answer("설정 변경 완료")
-    await query.edit_message_reply_markup(reply_markup=settings_keyboard())
-
 
 # ==================================================
 
@@ -902,72 +877,23 @@ async def welcome(
 
     chat_id = message.chat.id
 
+    if chat_id != MAIN_GROUP_ID:
+        return
+
     for member in message.new_chat_members:
-
-        # 봇 제외
-
         if member.is_bot:
-
             continue
-
         if not SETTINGS["subscription"]:
-            # 대량 초대 모드: 신규 회원의 구독/성별 인증을 생략
-            await send_normal_welcome(context, chat_id, member)
+            # OFF 입장자는 영구 면제 처리. 재시작/ON 전환 후에도 유지.
+            if not register_exempt_member(member.id):
+                print(f"[경고] OFF 입장 회원 {member.id} 기록 실패 - 저장소 점검 필요", flush=True)
             continue
-
-        subscribed = await is_subscribed(
-
-            context,
-
-            member.id,
-
-        )
-
-        # 이미 구독한 회원
-
-        if subscribed:
-
-            await unlock_member(
-
-                context,
-
-                member.id,
-
-            )
-
-            await send_normal_welcome(
-
-                context,
-
-                chat_id,
-
-                member,
-
-            )
-
-        # 미구독 회원
-
-        else:
-
-            # 성별 입력을 위해 잠깐 채팅 허용
-
-            await unlock_member(
-
-                context,
-
-                member.id,
-
-            )
-
-            await send_gender_message(
-
-                context,
-
-                chat_id,
-
-                member,
-
-            )
+        if member.id in EXEMPT_MEMBERS:
+            # 이미 인증했거나 OFF 입장했던 회원: 어떤 안내도 다시 띄우지 않음.
+            continue
+        # ON 입장자는 구독 완료 전까지 면제 기록을 남기지 않음.
+        await unlock_member(context, member.id)
+        await send_gender_message(context, chat_id, member)
 
     # ==================================================
 
@@ -1117,6 +1043,11 @@ async def check_subscription(
 
         )
 
+        return
+
+    # 구독 확인 + 채팅 활성화가 끝난 사람만 영구 인증 면제 등록.
+    if not register_exempt_member(target_user_id):
+        await query.answer("입장은 완료됐지만 인증 기록 저장에 실패했습니다. 관리자에게 알려주세요.", show_alert=True)
         return
 
     await query.answer(
@@ -1846,8 +1777,6 @@ def main():
 
     )
 
-    app.add_handler(CommandHandler("settings", show_settings))
-    app.add_handler(CallbackQueryHandler(toggle_settings, pattern=r"^setting:(subscription|welcome)$"))
 
     # 신규회원
 
