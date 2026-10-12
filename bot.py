@@ -221,52 +221,18 @@ MAIN_EMOJI_ID = "5267239001508554968"
 
 
 BUTTONS = [
+    [InlineKeyboardButton("공지사항 ( 필독 불이익 본인책임 )", url="https://t.me/Sexnotice", icon_custom_emoji_id="5332312390312668778")],
     [
-        InlineKeyboardButton(
-            "공지사항 ( 필독 불이익 본인책임 )",
-            url="https://t.me/Sexnotice",
-            icon_custom_emoji_id="5332312390312668778",
-        ),
+        InlineKeyboardButton("링크모아", url="https://t.me/SexLinker2", icon_custom_emoji_id="5332381569350905644"),
+        InlineKeyboardButton("대기조 공지채널", url="https://t.me/+J24_W1hQD6o2ZTA1", icon_custom_emoji_id="5332721082220689048"),
     ],
     [
-        InlineKeyboardButton(
-            "링크모아",
-            url="https://t.me/SexLinker2",
-            icon_custom_emoji_id="5332822842880832998",
-        ),
-        InlineKeyboardButton(
-            "대기조 공지채널",
-            url="https://t.me/+J24_W1hQD6o2ZTA1",
-        ),
+        InlineKeyboardButton("대기조", url="https://t.me/+NXu-QjSlCVo1ZDI1", icon_custom_emoji_id="5332443897916306318"),
+        InlineKeyboardButton("HOT19 공유", url="https://t.me/+E7pHMLcxagc5ZWVl", icon_custom_emoji_id="5330458252930986764"),
     ],
-    [
-        InlineKeyboardButton(
-            "대기조",
-            url="https://t.me/+NXu-QjSlCVo1ZDI1",
-            icon_custom_emoji_id="5332381569350905644",
-        ),
-        InlineKeyboardButton(
-            "HOT19 공유",
-            url="https://t.me/+E7pHMLcxagc5ZWVl",
-            icon_custom_emoji_id="5332443897916306318",
-        ),
-    ],
-    [
-        InlineKeyboardButton(
-            "전국 몸매자랑방",
-            url="https://t.me/+v6BVxUfOP_VhODE9",
-            icon_custom_emoji_id="5330458252930986764",
-        ),
-    ],
-    [
-        InlineKeyboardButton(
-            "제휴문의",
-            url="https://t.me/Kingsexer",
-            icon_custom_emoji_id="5332721082220689048",
-        ),
-    ],
+    [InlineKeyboardButton("F 전국 몸매자랑방", url="https://t.me/+v6BVxUfOP_VhODE9")],
+    [InlineKeyboardButton("제휴문의", url="https://t.me/Kingsexer", icon_custom_emoji_id="5332817676035176022")],
 ]
-
 
 # ==================================================
 
