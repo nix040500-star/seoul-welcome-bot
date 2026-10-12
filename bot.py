@@ -428,7 +428,7 @@ def build_welcome_message(name):
 
             type=MessageEntity.BOLD,
 
-            offset=0,
+            onset=0,
 
             length=utf16_len(text),
 
