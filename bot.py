@@ -1,6 +1,8 @@
 import os
 
 import asyncio
+import json
+from pathlib import Path
 
 from datetime import datetime
 
@@ -63,6 +65,48 @@ TOKEN = os.environ["BOT_TOKEN"]
 
 
 MAIN_GROUP_ID = -1003796235018
+
+# 관리자 명령어로 전환하는 임시 자유입장 모드 (재시작 후에도 유지)
+FREE_MODE_FILE = Path("seoul_free_entry_mode.json")
+
+def read_free_mode():
+    try:
+        return bool(json.loads(FREE_MODE_FILE.read_text(encoding="utf-8")).get("enabled", False))
+    except (OSError, ValueError, AttributeError):
+        return False
+
+FREE_ENTRY_MODE = read_free_mode()
+
+async def toggle_free_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global FREE_ENTRY_MODE
+    message = update.effective_message
+    user = update.effective_user
+    if not message or not user or message.chat.type not in ("private", "supergroup", "group"):
+        return
+    if message.chat.type != "private" and message.chat.id != MAIN_GROUP_ID:
+        return
+    try:
+        member = await context.bot.get_chat_member(MAIN_GROUP_ID, user.id)
+        if member.status not in (ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER):
+            await message.reply_text("서울 메인방 관리자만 사용할 수 있습니다.")
+            return
+    except Exception as exc:
+        await message.reply_text(f"관리자 확인 실패: {exc}")
+        return
+    enabled = message.text.split()[0].split("@")[0] == "/free_on"
+    try:
+        tmp = FREE_MODE_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps({"enabled": enabled}), encoding="utf-8")
+        tmp.replace(FREE_MODE_FILE)
+    except OSError as exc:
+        await message.reply_text(f"설정 저장 실패: {exc}")
+        return
+    FREE_ENTRY_MODE = enabled
+    await message.reply_text(
+        "✅ 자유입장 ON: 신규 입장자 인증·환영 안내 없이 이용 가능" if enabled
+        else "✅ 자유입장 OFF: 이후 신규 입장자부터 기존 인증 절차 적용"
+    )
+
 
 
 
@@ -231,7 +275,7 @@ BUTTONS = [
         InlineKeyboardButton("HOT19 공유", url="https://t.me/+E7pHMLcxagc5ZWVl", icon_custom_emoji_id="5330458252930986764"),
     ],
     [InlineKeyboardButton("전국 몸매자랑방", url="https://t.me/+v6BVxUfOP_VhODE9", icon_custom_emoji_id="5332817676035176022")],
-    [InlineKeyboardButton("제휴문의", url="https://t.me/Kingsexer", icon_custom_emoji_id="5332721082220689048")],
+    [InlineKeyboardButton("제휴문의", url="https://t.me/bigbig_guy777", icon_custom_emoji_id="5332721082220689048")],
 ]
 
 # ==================================================
@@ -754,6 +798,9 @@ async def handle_gender_input(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         return
 
+    if FREE_ENTRY_MODE:
+        return
+
     if user.id not in PENDING_GENDER_USERS:
 
         return
@@ -996,7 +1043,15 @@ async def welcome(
 
     chat_id = message.chat.id
 
-
+    if chat_id != MAIN_GROUP_ID:
+        return
+    if FREE_ENTRY_MODE:
+        # 자유입장 중에는 신규 회원에게 인증/환영창을 띄우지 않음
+        try:
+            await message.delete()
+        except Exception as exc:
+            print(f"입장 시스템 메시지 삭제 오류: {exc}")
+        return
 
     for member in message.new_chat_members:
 
@@ -2227,6 +2282,10 @@ def main():
 
 
 
+
+    # 관리자 전용 임시 자유입장 모드
+    app.add_handler(CommandHandler("free_on", toggle_free_mode))
+    app.add_handler(CommandHandler("free_off", toggle_free_mode))
 
     # 신규회원
 
